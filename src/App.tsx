@@ -1,7 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import React, { useState } from "react";
 import LandingPage from "./pages/LandingPage";
-import AdminDashboard from "./pages/AdminDashboard";
 import EventDetailPage from "./pages/EventDetailPage";
 import SplashScreen from "./components/SplashScreen";
 import { AnimatePresence, motion } from "motion/react";
@@ -24,7 +23,6 @@ export default function App() {
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/event/:id" element={<EventDetailPage />} />
-              <Route path="/admin" element={<AdminDashboard />} />
             </Routes>
           </motion.div>
         )}

@@ -1,14 +1,12 @@
 # Talkware Community Landing
 
-A modern landing page for the Talkware Community, a home for tech builders in Mandalay. The site includes a public landing page and an authenticated admin hub for managing community content.
+A modern public landing page for the Talkware Community, a home for tech builders in Mandalay. The administration app now lives in the separate sibling project `../talkware_admin_hub`.
 
 ## Features
 
 - Public landing page with hero, events, highlights, founding members, volunteers, and contact sections
 - Event detail pages for public event information
-- Admin hub at `/admin` for managing events, highlights, co-creators, and volunteers
-- Supabase Auth, PostgreSQL, Storage, and row-level security
-- Image uploads for highlights, co-creators, and volunteers
+- Supabase PostgreSQL, Storage, and row-level security
 
 ## Tech Stack
 
@@ -58,7 +56,6 @@ npm run dev
 Local URLs:
 
 - Public site: `http://localhost:3000/`
-- Admin hub: `http://localhost:3000/admin`
 
 ## Scripts
 
@@ -78,12 +75,9 @@ npm run build
 
 The build output is generated in `dist/` and can be deployed to static hosting providers such as Netlify, Vercel, or Cloudflare Pages.
 
-## Admin Access
+## Admin Hub
 
-1. Create an email/password user in Supabase Auth.
-2. Go to `/admin`.
-3. Sign in with the Supabase user.
-4. Manage events, highlights, co-creators, and volunteers.
+Content administration is maintained and deployed independently from `../talkware_admin_hub`. Both projects connect to the same Supabase backend.
 
 ## Database
 
@@ -92,7 +86,7 @@ The main setup script is `database_schema.sql`. It creates tables, indexes, the 
 Access model:
 
 - Public users can read published content.
-- Authenticated users can create, update, and delete content.
+- Authenticated admin users can create, update, and delete content through the separate Admin Hub.
 
 Older local SQL helper scripts are intentionally ignored and are not part of the contributor setup path.
 

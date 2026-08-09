@@ -2,10 +2,10 @@
 
 ## Connection Overview
 
-The admin hub and landing page are connected through shared Supabase tables. The admin hub writes content; the public pages read that content with the anon Supabase client.
+The separately deployed Admin Hub (`../talkware_admin_hub`) and this landing page are connected through shared Supabase tables. The Admin Hub writes content; the public pages read that content with the public Supabase client.
 
 ```text
-/admin
+Talkware Admin Hub `/`
   -> Supabase Auth
   -> INSERT / UPDATE / DELETE content tables
   -> Supabase Storage uploads
@@ -21,7 +21,7 @@ The admin hub and landing page are connected through shared Supabase tables. The
 
 ## Authentication Boundary
 
-- `/admin` uses `supabase.auth.getSession()` and `onAuthStateChange()`.
+- The separate Admin Hub uses `supabase.auth.getSession()` and `onAuthStateChange()`.
 - If no session exists, the admin login form is shown.
 - If a session exists, admin content management is shown.
 - Database write access depends on Supabase RLS policies for the `authenticated` role.
@@ -113,4 +113,3 @@ Admin tab: `Volunteers`
 - `VITE_SUPABASE_ANON_KEY` must be configured for the frontend client.
 - If `events.archived` or `highlights.event_id` is missing, current UI behavior will break or lose linking behavior.
 - If the `assets` bucket or storage policies are missing, image uploads will fail.
-

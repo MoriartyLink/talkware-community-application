@@ -4,7 +4,7 @@
 
 - React 19 with Vite 6.
 - TypeScript for application source.
-- React Router for `/`, `/event/:id`, and `/admin`.
+- React Router for `/` and `/event/:id`.
 - Supabase for PostgreSQL data, Auth, and Storage.
 - Tailwind CSS 4 utilities through `src/index.css`.
 - Motion and Lucide React for animation and icons.
@@ -24,7 +24,6 @@ Top-level router and splash orchestration.
 - Routes:
   - `/` -> `LandingPage`
   - `/event/:id` -> `EventDetailPage`
-  - `/admin` -> `AdminDashboard`
 
 ### `src/components/SplashScreen.tsx`
 
@@ -48,15 +47,6 @@ Public event detail page.
 - Reads `event_media`, `event_sections`, and linked `highlights`.
 - Supports photo galleries, YouTube embeds, local video URLs, section groups, and related highlights.
 
-### `src/pages/AdminDashboard.tsx`
-
-Authenticated admin hub.
-
-- Uses Supabase email/password auth.
-- Lets signed-in users manage events, highlights, co-creators, volunteers, and founding team.
-- Lets admins add event media and event sections while editing an existing event.
-- Uploads images to the public `assets` Supabase Storage bucket.
-
 ### `src/lib/supabase.ts`
 
 Supabase client factory.
@@ -64,6 +54,8 @@ Supabase client factory.
 - Reads `VITE_SUPABASE_URL`, with a fallback project URL.
 - Reads `VITE_SUPABASE_ANON_KEY`.
 - Exports a shared `supabase` client.
+
+The administration UI is maintained in the sibling project `../talkware_admin_hub` and is not part of this app's routes or production bundle.
 
 ## SQL and Data Files
 
