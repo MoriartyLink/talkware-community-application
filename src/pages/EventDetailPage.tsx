@@ -2,18 +2,14 @@ import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "motion/react";
 import { supabase } from "../lib/supabase";
-import { ArrowLeft, Calendar, Globe, User, Play, Image as ImageIcon, Trophy, Zap, Gamepad2, Sparkles, Tv, ChevronDown, ChevronUp, Github } from "lucide-react";
+import { ArrowLeft, Calendar, Globe, User, Play, Image as ImageIcon, Trophy, Zap, Gamepad2, Sparkles, ChevronDown, ChevronUp, Github, Share2 } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { formatEventDate, shareEvent } from "../lib/community";
+import type { CommunityEvent } from "../types/community";
+import EventRegistrationSection from "../components/EventRegistrationSection";
+import EventResourcesSection from "../components/EventResourcesSection";
 
-interface Event {
-  id: string;
-  title: string;
-  date: string;
-  type: 'Meetup' | 'Training';
-  location?: string;
-  speaker?: string;
-  description: string;
-  link: string;
-}
+type Event = CommunityEvent;
 
 interface EventMedia {
   id: string;
@@ -34,18 +30,6 @@ interface EventSection {
   subtitle?: string;
   icon?: string;
   sort_order: number;
-}
-
-interface Highlight {
-  id: string;
-  num: string;
-  title: string;
-  date: string;
-  place: string;
-  time: string;
-  image_url: string;
-  highlight: string;
-  event_id?: string;
 }
 
 const sectionIcons: Record<string, React.ReactNode> = {
@@ -83,29 +67,29 @@ function getYouTubeEmbedId(url: string): string | null {
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { session, application, staffRole } = useAuth();
   const [event, setEvent] = useState<Event | null>(null);
   const [media, setMedia] = useState<EventMedia[]>([]);
   const [sections, setSections] = useState<EventSection[]>([]);
-  const [relatedHighlights, setRelatedHighlights] = useState<Highlight[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAllPhotos, setShowAllPhotos] = useState(false);
+  const [shareNotice, setShareNotice] = useState('');
+  const isApprovedMember = application?.status === 'approved' || Boolean(staffRole);
 
   useEffect(() => {
     if (!id) return;
     
     async function fetchData() {
       try {
-        const [eventRes, mediaRes, sectionsRes, highlightsRes] = await Promise.all([
+        const [eventRes, mediaRes, sectionsRes] = await Promise.all([
           supabase.from('events').select('*').eq('id', id).single(),
           supabase.from('event_media').select('*').eq('event_id', id).order('sort_order', { ascending: true }),
           supabase.from('event_sections').select('*').eq('event_id', id).order('sort_order', { ascending: true }),
-          supabase.from('highlights').select('*').eq('event_id', id).order('num', { ascending: false }),
         ]);
 
         if (eventRes.data) setEvent(eventRes.data as Event);
         if (mediaRes.data) setMedia(mediaRes.data as EventMedia[]);
         if (sectionsRes.data) setSections(sectionsRes.data as EventSection[]);
-        if (highlightsRes.data) setRelatedHighlights(highlightsRes.data as Highlight[]);
       } catch (err) {
         console.error('Error fetching event detail:', err);
       } finally {
@@ -144,6 +128,10 @@ export default function EventDetailPage() {
 
   const sectionTypes = ['highlight', 'activity', 'game', 'win'] as const;
   const visiblePhotos = showAllPhotos ? photos : photos.slice(0, 4);
+  const handleShare = async () => {
+    setShareNotice('');
+    try { const result = await shareEvent(event); if (result === 'copied') setShareNotice('Event link copied.'); } catch (error) { if ((error as DOMException).name !== 'AbortError') setShareNotice('Could not share this event.'); }
+  };
 
 
   return (
@@ -155,8 +143,8 @@ export default function EventDetailPage() {
             <img src="/logo.png" alt="Talkware Logo" className="w-8 h-8 object-contain" />
             <span className="font-display font-bold text-xl tracking-tighter uppercase">Talkware</span>
           </Link>
-          <Link to="/" className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Back to Home
+          <Link to={isApprovedMember ? "/community/events" : "/"} className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors">
+            <ArrowLeft className="w-4 h-4" /> {isApprovedMember ? 'Community Events' : 'Back to Home'}
           </Link>
         </div>
       </nav>
@@ -175,7 +163,7 @@ export default function EventDetailPage() {
               <div className="flex items-center gap-3 mb-6 flex-wrap">
                 <span className="px-4 py-1.5 bg-white/10 rounded-full text-xs font-bold uppercase tracking-widest">{event.type}</span>
                 <span className="flex items-center gap-2 text-sm text-white/40">
-                  <Calendar className="w-4 h-4" /> {event.date}
+                  <Calendar className="w-4 h-4" /> {formatEventDate(event)}
                 </span>
               </div>
               <h1 className="text-4xl md:text-6xl font-display font-bold mb-6 leading-tight">{event.title}</h1>
@@ -192,23 +180,16 @@ export default function EventDetailPage() {
               {event.description && (
                 <p className="text-lg text-white/60 leading-relaxed max-w-2xl">{event.description}</p>
               )}
-              {event.link && (
-                <motion.a
-                  href={event.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 mt-8 px-8 py-4 bg-white text-black font-bold rounded-2xl hover:bg-white/90 transition-all hover:scale-105 active:scale-95"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  Register Now
-                </motion.a>
-              )}
+              <button onClick={handleShare} className="mt-8 inline-flex items-center gap-2 rounded-xl border border-white/15 px-5 py-3 text-sm font-bold hover:bg-white/10"><Share2 className="h-4 w-4" /> Share event</button>
+              {shareNotice && <p className="mt-4 text-sm text-white/55">{shareNotice}</p>}
             </motion.div>
           </div>
         </section>
 
-        {/* Photo Gallery Section */}
+        <EventRegistrationSection event={event} />
+        <EventResourcesSection eventId={event.id} />
+
+        {/* Event Photos Section */}
         {photos.length > 0 && (
           <section className="py-16 px-6 border-t border-white/5">
             <div className="max-w-6xl mx-auto">
@@ -221,7 +202,7 @@ export default function EventDetailPage() {
               >
                 <div className="flex items-center gap-3 mb-2">
                   <ImageIcon className="w-6 h-6 text-white/60" />
-                  <h2 className="text-2xl md:text-3xl font-display font-bold">Photo Gallery</h2>
+                  <h2 className="text-2xl md:text-3xl font-display font-bold">Event Photo</h2>
                 </div>
                 <p className="text-white/40 text-sm">{photos.length} photo{photos.length !== 1 ? 's' : ''}</p>
               </motion.div>
@@ -387,54 +368,6 @@ export default function EventDetailPage() {
           );
         })}
 
-        {/* Related Highlights */}
-        {relatedHighlights.length > 0 && (
-          <section className="py-16 px-6 border-t border-white/5">
-            <div className="max-w-5xl mx-auto">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5 }}
-                className="mb-8"
-              >
-                <h2 className="text-2xl md:text-3xl font-display font-bold mb-2">Past Events</h2>
-                <p className="text-white/40 text-sm">Also featured in our Past Events</p>
-              </motion.div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {relatedHighlights.map((hl, i) => (
-                  <motion.div
-                    key={hl.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: i * 0.1 }}
-                    className="p-6 glass rounded-2xl group hover:bg-white/[0.06] transition-colors relative overflow-hidden flex flex-col"
-                  >
-                    <div className="absolute top-4 right-4 text-5xl font-display font-black text-white/[0.04] group-hover:text-white/[0.08] transition-colors select-none">
-                      {hl.num}
-                    </div>
-                    <div className="aspect-video mb-6 rounded-xl overflow-hidden bg-white/5">
-                      <img
-                        src={hl.image_url}
-                        alt={hl.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
-                      />
-                    </div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-3">{hl.date} • {hl.time}</p>
-                    <h3 className="font-display font-bold text-lg mb-2">{hl.title}</h3>
-                    <div className="flex items-center gap-1.5 text-xs text-white/40 mb-4">
-                      <Globe className="w-3 h-3" />
-                      <span>{hl.place}</span>
-                    </div>
-                    <p className="text-sm text-white/50 leading-relaxed">{hl.highlight}</p>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
         {/* Back to All Events */}
         <section className="py-20 px-6 border-t border-white/5">
           <div className="max-w-4xl mx-auto text-center">
@@ -445,10 +378,10 @@ export default function EventDetailPage() {
               transition={{ duration: 0.5 }}
             >
               <Link
-                to="/"
+                to={isApprovedMember ? "/community/events" : "/"}
                 className="inline-flex items-center gap-3 px-8 py-4 glass rounded-2xl border border-white/10 text-white/80 hover:text-white hover:border-white/30 transition-all font-bold"
               >
-                <ArrowLeft className="w-5 h-5" /> Back to All Events
+                <ArrowLeft className="w-5 h-5" /> {isApprovedMember ? 'Back to Community Events' : 'Back to Talkware'}
               </Link>
             </motion.div>
           </div>
@@ -503,4 +436,3 @@ export default function EventDetailPage() {
     </div>
   );
 }
-

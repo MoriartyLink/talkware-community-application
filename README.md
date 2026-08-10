@@ -4,9 +4,11 @@ A modern public landing page for the Talkware Community, a home for tech builder
 
 ## Features
 
-- Public landing page with hero, events, highlights, founding members, volunteers, and contact sections
-- Event detail pages for public event information
-- Supabase PostgreSQL, Storage, and row-level security
+- Public landing page with mission, past events, team, and opt-in community member profiles
+- Google OAuth or verified email/password registration, followed by a member application and admin approval
+- Protected member portal for event announcements, registrations, resources, update reactions, profiles, and personal QR passes
+- Public shareable event pages with guest registration
+- Supabase PostgreSQL, Auth, private/public Storage, transactional registration, and row-level security
 
 ## Tech Stack
 
@@ -43,7 +45,18 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 ### 3. Set up Supabase
 
-Run the SQL in `database_schema.sql` from the Supabase SQL Editor.
+For a clean project, run `database_schema.sql` in the Supabase SQL Editor. Existing deployments should apply the ordered files in `supabase/migrations` instead.
+
+Enable email/password signups with email confirmation in Supabase Auth. Enable the Google provider and configure its Google client ID/secret if you also want Google sign-in. Add these Auth redirect URLs:
+
+```text
+http://localhost:3000/auth/callback
+https://YOUR_PRODUCTION_DOMAIN/auth/callback
+```
+
+For hosted/public registration, configure **Authentication → SMTP Settings** with a custom SMTP provider and a verified sender domain. Supabase's default sender is limited to organization team addresses and is not suitable for community signups. Also verify **Authentication → URL Configuration** has the production Site URL and callback URL. For local development, confirmation messages do not reach a real inbox; open Mailpit at `http://127.0.0.1:55324` after `npx supabase start`.
+
+The member migration promotes Auth users that existed before the migration to `admin`. New email/password and Google users receive no staff access and must submit the same member-facing application.
 
 ## Development
 
@@ -56,6 +69,8 @@ npm run dev
 Local URLs:
 
 - Public site: `http://localhost:3000/`
+- Member sign in or email registration: `http://localhost:3000/auth`
+- Member portal: `http://localhost:3000/community`
 
 ## Scripts
 
@@ -85,8 +100,10 @@ The main setup script is `database_schema.sql`. It creates tables, indexes, the 
 
 Access model:
 
-- Public users can read published content.
-- Authenticated admin users can create, update, and delete content through the separate Admin Hub.
+- Public users can read published event pages, register as guests, see approved opt-in member profiles, and create a verified email/password account.
+- Approved members can access community posts, event resources, their registrations, profile, reactions, attendance, and QR pass.
+- Organizers and admins are authorized through `staff_roles`; authentication alone does not grant write access.
+- The separate Admin Hub manages approvals, events, updates, resources, registrations, staff roles, and QR attendance.
 
 Older local SQL helper scripts are intentionally ignored and are not part of the contributor setup path.
 

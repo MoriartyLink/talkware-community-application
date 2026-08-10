@@ -2,7 +2,11 @@
 
 ## Canonical Schema Source
 
-Use `database_schema.sql` as the active schema source. Older SQL helper scripts are local-only and ignored.
+Use `database_schema.sql` for a clean installation. Apply the ordered files in `supabase/migrations` to existing deployments. Older SQL helper scripts are local-only and ignored.
+
+The member portal adds `member_profiles`, `membership_applications`, `staff_roles`, `member_passes`, `community_posts`, `post_reactions`, `event_registrations`, `event_resources`, and `event_attendance`. Public tables use explicit Data API grants and RLS; presentation files live in the private `event-resources` bucket.
+
+Membership applications are always submitted by an authenticated member account. Both verified email/password registration and Google OAuth produce that Auth identity, and RLS requires the application email to match the signed-in user's JWT email.
 
 ## Tables
 
@@ -142,11 +146,12 @@ Stores structured event detail content blocks.
 ## Access Model
 
 - Row Level Security is enabled on all content tables.
-- Public users can `SELECT` all content tables.
-- Authenticated users can `INSERT`, `UPDATE`, and `DELETE`.
+- Public users can read published events and event content, past highlights, contributors, and approved opt-in member profiles.
+- Approved members can read community posts and resources and can manage only their own profile, registration status, and reaction.
+- Staff writes require an `admin` or `organizer` row in `staff_roles`; authentication alone grants no content-management permission.
 - Supabase Storage bucket `assets` is expected to be public.
 - Public users can read `storage.objects` for `assets`.
-- Authenticated users can manage `storage.objects` for `assets`.
+- Staff manage `assets` and the private `event-resources` bucket; approved members can read event resources.
 
 ## Relationship Summary
 

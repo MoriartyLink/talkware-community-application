@@ -7,6 +7,7 @@ The separately deployed Admin Hub (`../talkware_admin_hub`) and this landing pag
 ```text
 Talkware Admin Hub `/`
   -> Supabase Auth
+  -> `staff_roles` authorization
   -> INSERT / UPDATE / DELETE content tables
   -> Supabase Storage uploads
 
@@ -23,8 +24,17 @@ Talkware Admin Hub `/`
 
 - The separate Admin Hub uses `supabase.auth.getSession()` and `onAuthStateChange()`.
 - If no session exists, the admin login form is shown.
-- If a session exists, admin content management is shown.
-- Database write access depends on Supabase RLS policies for the `authenticated` role.
+- If a session exists, the Admin Hub reads `staff_roles` before rendering staff tools.
+- `admin` can manage staff assignments and all content; `organizer` receives operational access and optional membership-review permission.
+- An authenticated account without a staff role receives an access-denied screen.
+
+## Member Operations
+
+- The Community tab reviews membership applications and publishes member updates.
+- Members can create an account with verified email/password or Google, then submit the same application from `/join`; staff review both paths here.
+- Event operations show member/guest registrations and waitlist status, and upload presentation files to the private `event-resources` bucket.
+- QR check-in selects an event, scans an opaque member pass, validates confirmed registration, and records one attendance row.
+- Existing Auth users are bootstrapped as admins by the member migration because Auth was admin-only before public Google signup.
 
 ## Shared Tables by Feature
 
@@ -33,7 +43,7 @@ Talkware Admin Hub `/`
 Admin tab: `Events`
 
 - Writes to `events`.
-- Public landing page reads `events` with `archived = false`.
+- Member portal reads published, non-archived events; the landing page no longer lists upcoming events.
 - Admin dashboard reads all events, including archived ones.
 - Archive button toggles `events.archived`.
 
@@ -91,11 +101,9 @@ Admin tab: `Volunteers`
 
 `LandingPage.fetchData()` runs these queries:
 
-- `events`: select all, `archived = false`, newest first.
 - `highlights`: select all, order by `num`.
-- `co_creators`: select all, oldest first.
-- `volunteers`: select all, oldest first.
-- `founding_team`: select all, order by `sort_order`.
+- `contributors`: select all, highest contribution points first.
+- `member_profiles`: select approved, opted-in public cards.
 
 ### Event Detail Page
 
@@ -109,7 +117,7 @@ Admin tab: `Volunteers`
 ## Operational Notes
 
 - Public reads use the anon key, so RLS public `SELECT` policies are required.
-- Admin writes require signed-in Supabase Auth users.
+- Admin writes require both Supabase Auth and a matching `staff_roles` row.
 - `VITE_SUPABASE_ANON_KEY` must be configured for the frontend client.
 - If `events.archived` or `highlights.event_id` is missing, current UI behavior will break or lose linking behavior.
 - If the `assets` bucket or storage policies are missing, image uploads will fail.

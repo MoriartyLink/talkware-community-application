@@ -1,32 +1,19 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Calendar, Users, Zap, Globe, Github, Trophy, User, Linkedin } from "lucide-react";
+import { ArrowRight, Users, Globe, Github, User, Linkedin } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
+import MemberNetwork from "../components/MemberNetwork";
 
-const REGISTER_URL = "https://docs.google.com/forms/d/e/1FAIpQLSc36OmsSG-1iLlA2_THVL3JKlGkR0-JWfd1IyrEOyZtPKjfnw/viewform?usp=header";
-const COMMUNITY_URL = "https://t.me/talkware";
-
-interface Event {
+interface HighlightEvent {
   id: string;
   title: string;
-  date: string;
-  type: 'Meetup' | 'Training';
-  location?: string;
-  speaker?: string;
-  description: string;
-  link: string;
-}
-
-interface Highlight {
-  id: string;
-  num: string;
-  title: string;
-  date: string;
-  place: string;
-  time: string;
-  image_url: string;
-  highlight: string;
+  date: string | null;
+  location: string | null;
+  starts_at: string | null;
+  highlight_image_url: string | null;
+  highlight_note: string | null;
 }
 
 interface Contributor {
@@ -37,6 +24,8 @@ interface Contributor {
   image_url: string;
   github_url?: string;
   linkedin_url?: string;
+  telegram_url?: string;
+  contact_email?: string;
   active: boolean;
   joined_at: string;
   points?: number;
@@ -46,6 +35,17 @@ interface ContributorTag {
   value: string;
   label: string;
   color: string;
+}
+
+interface PublicMember {
+  user_id: string;
+  display_name: string;
+  avatar_url?: string;
+  headline?: string;
+  bio?: string;
+  skills?: string[];
+  github_url?: string;
+  linkedin_url?: string;
 }
 
 const DEFAULT_TAGS: ContributorTag[] = [
@@ -77,32 +77,33 @@ const getContributionTone = (points = 0, maxPoints = 0) => {
 };
 
 export default function LandingPage() {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const { session, application, staffRole } = useAuth();
+  const [highlights, setHighlights] = useState<HighlightEvent[]>([]);
   const [contributors, setContributors] = useState<Contributor[]>([]);
+  const [members, setMembers] = useState<PublicMember[]>([]);
   const [contributorTags, setContributorTags] = useState<ContributorTag[]>(DEFAULT_TAGS);
-  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [openContributorId, setOpenContributorId] = useState<string | null>(null);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [eventsData, highlightsData, contributorsData] = await Promise.all([
-          supabase.from('events').select('*').eq('archived', false).order('created_at', { ascending: false }),
-          supabase.from('highlights').select('*').order('num', { ascending: true }),
-          supabase.from('contributors').select('*').order('points', { ascending: false }).order('created_at', { ascending: true })
+        const [eventsData, contributorsData, membersData] = await Promise.all([
+          supabase.from('events').select('id, title, date, location, starts_at, highlight_image_url, highlight_note').eq('published', true).eq('archived', true).order('starts_at', { ascending: false, nullsFirst: false }),
+          supabase.from('contributors').select('*').order('points', { ascending: false }).order('created_at', { ascending: true }),
+          supabase.from('member_profiles').select('user_id, display_name, avatar_url, headline, bio, skills, github_url, linkedin_url, telegram_url, contact_email').eq('public_listing', true).order('display_name', { ascending: true })
         ]);
         const tagsData = await supabase.from('contributor_tags').select('*').order('label', { ascending: true });
 
-        if (eventsData.data && eventsData.data.length > 0) setEvents(eventsData.data as Event[]);
-        if (highlightsData.data && highlightsData.data.length > 0) setHighlights(highlightsData.data as Highlight[]);
+        if (eventsData.data) setHighlights((eventsData.data as HighlightEvent[]).filter(event => Boolean(event.highlight_note?.trim() || event.highlight_image_url?.trim())));
         if (contributorsData.data && contributorsData.data.length > 0) setContributors(contributorsData.data as Contributor[]);
+        if (membersData.data && membersData.data.length > 0) { setMembers(membersData.data as PublicMember[]); setSelectedMemberId(membersData.data[0].user_id); }
         if (tagsData.data && tagsData.data.length > 0) setContributorTags(tagsData.data as ContributorTag[]);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
-        setLoading(false);
+        // Individual sections render their empty states when data is unavailable.
       }
     }
 
@@ -126,13 +127,11 @@ export default function LandingPage() {
       opacity: 1,
       transition: {
         duration: 0.5,
-        ease: "easeOut",
+        ease: "easeOut" as const,
       },
     },
   };
 
-  // Only show events from the database (filtered non-archived in fetchData)
-  const displayEvents = events;
   const maxContributionPoints = Math.max(0, ...contributors.map(contributor => contributor.points || 0));
   const teamFilters = [
     { value: 'all', label: 'All' },
@@ -149,69 +148,12 @@ export default function LandingPage() {
   });
   const getContributorTag = (tag: string) =>
     contributorTags.find(option => option.value === tag) || { value: tag, label: formatContributorTag(tag), color: DEFAULT_TAG_COLOR };
+  const communityHref = session
+    ? (application?.status === 'approved' || staffRole ? '/community' : application ? '/application-status' : '/join')
+    : '/auth';
+  const joinHref = session ? communityHref : '/auth?mode=register';
 
-  const displayHighlights = highlights.length > 0 ? highlights : [
-    {
-      id: 'h1',
-      num: "01",
-      title: "1st Talkware Meetup",
-      date: "Nov 2, 2025",
-      place: "Shadow Cafe, 107 64",
-      time: "1:00 – 3:00 PM",
-      image_url: "/assets/events/img-000.png",
-      highlight: "Where it all began — the first gathering of builders and thinkers.",
-    },
-    {
-      id: 'h2',
-      num: "02",
-      title: "The Role of Business in Digital Era",
-      date: "Dec 1, 2025",
-      place: "Manner Cafe",
-      time: "1:00 – 3:00 PM",
-      image_url: "/assets/events/img-001.png",
-      highlight: "Introduced the Design Framework. The community found its rhythm.",
-    },
-    {
-      id: 'h3',
-      num: "03",
-      title: "Let's Talk About Lean Model",
-      date: "Jan 11, 2026",
-      place: "The Cups Cafe",
-      time: "1:00 – 3:00 PM",
-      image_url: "/assets/events/img-005.png",
-      highlight: "Rebranded into Pockraft. A pivotal moment for the community's identity.",
-    },
-    {
-      id: 'h4',
-      num: "04",
-      title: "Project to Product",
-      date: "Feb 8, 2026",
-      place: "The Capulus Cafe",
-      time: "1:00 – 3:30 PM",
-      image_url: "/assets/events/img-008.png",
-      highlight: "Sir AKKT joined as Custodian. Introduced the Problem statement ,Featured project showcases and deep discussions.",
-    },
-    {
-      id: 'h5',
-      num: "05",
-      title: "High Value Freelancer",
-      date: "March 8, 2026",
-      place: "The Manner Cafe",
-      time: "1:00 – 3:30 PM",
-      image_url: "/assets/events/img-013.png",
-      highlight: "Sir Thiha as Guest Speaker.New Talkware Co-creators joined. Planned NewWorld Program & Talkware Protocol.",
-    },
-    {
-      id: 'h6',
-      num: "06",
-      title: "Find Your Team Build Your Idea",
-      date: "Apr 19, 2026",
-      place: "The Cups Cafe",
-      time: "1:00 – 3:30 PM",
-      image_url: "/assets/events/img-014.jpg",
-      highlight: "Sir AKKT as Guest Speaker. Introduced the Solution ,Product Builder's Stack ",
-    },
-  ];
+  const displayHighlights = highlights;
 
   return (
     <div className="min-h-screen bg-brand-bg text-brand-text selection:bg-white selection:text-black">
@@ -224,18 +166,16 @@ export default function LandingPage() {
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/60">
             <a href="#mission" className="hover:text-white transition-colors">Home</a>
-            <a href="#events" className="hover:text-white transition-colors">Announcements</a>
             <a href="#past-events" className="hover:text-white transition-colors">Past Events</a>
             <a href="#story" className="hover:text-white transition-colors">Our Story</a>
+            <a href="#members" className="hover:text-white transition-colors">Members</a>
           </div>
-          <a
-            href={COMMUNITY_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            to={communityHref}
             className="px-5 py-2 bg-white text-black text-sm font-bold rounded-full hover:bg-white/90 transition-all transform hover:scale-105 active:scale-95"
           >
-            Join Community
-          </a>
+            {session ? 'Community' : 'Join / Login'}
+          </Link>
         </div>
       </nav>
 
@@ -261,14 +201,15 @@ export default function LandingPage() {
               Home for passionate tech builders in Mandalay.
             </motion.p>
 
-            <motion.div variants={itemVariants} className="flex justify-center">
-              <a
-                href="#events"
+            <motion.div variants={itemVariants} className="flex flex-col sm:flex-row justify-center gap-3">
+              <Link
+                to={joinHref}
                 className="w-full sm:w-auto px-8 py-4 bg-white text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-white/90 transition-all group"
               >
-                Register for Events
+                {session ? 'Open Community' : 'Join Community'}
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </a>
+              </Link>
+              {!session && <Link to="/auth" className="w-full sm:w-auto px-8 py-4 border border-white/15 font-bold rounded-xl flex items-center justify-center hover:bg-white/10 transition-all">Member Login</Link>}
             </motion.div>
           </motion.div>
         </section>
@@ -323,64 +264,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Upcoming Events Section */}
-        <section id="events" className="py-24 px-6 bg-white text-black rounded-3xl md:rounded-[5rem] my-12">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-6xl font-display font-bold mb-6">Upcoming Events</h2>
-              <p className="text-black/60 max-w-2xl mx-auto text-lg">
-                Don't miss out on our next gathering. Secure your spot today and be part of the conversation.
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-8 mb-16">
-              {displayEvents.map((event, i) => (
-                <div key={event.id || i} className="p-8 border border-black/10 rounded-3xl hover:border-black/30 transition-colors group">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="px-3 py-1 bg-black text-white text-[10px] font-bold uppercase tracking-widest rounded-full">
-                      {event.type}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm font-medium text-black/40">
-                      <Calendar className="w-4 h-4" />
-                      {event.date}
-                    </div>
-                  </div>
-                  <h3 className="text-2xl font-display font-bold mb-2 group-hover:translate-x-1 transition-transform">{event.title}</h3>
-                  {event.speaker && (
-                    <p className="text-sm font-bold text-black/40 mb-4 tracking-tight uppercase">Guest Speaker: {event.speaker}</p>
-                  )}
-                  {event.location && (
-                    <div className="flex items-center gap-2 text-sm text-black/40 mb-4">
-                      <Globe className="w-3 h-3" />
-                      <span>{event.location}</span>
-                    </div>
-                  )}
-                  <p className="text-black/60 mb-8 leading-relaxed">{event.description}</p>
-                  <a
-                    href={event.link || REGISTER_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 font-bold hover:underline"
-                  >
-                    Register Now <ArrowRight className="w-4 h-4" />
-                  </a>
-                </div>
-              ))}
-            </div>
-
-            <div className="text-center">
-              <a
-                href={COMMUNITY_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block px-12 py-6 bg-black text-white font-bold text-xl rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-black/20"
-              >
-                Join the Community
-              </a>
-            </div>
-          </div>
-        </section>
-
         {/* Past Events */}
         <section id="past-events" className="py-24 px-6">
           <div className="max-w-7xl mx-auto">
@@ -394,7 +277,8 @@ export default function LandingPage() {
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {displayHighlights.map((event, i) => {
-                const detailLink = event.event_id ? `/event/${event.event_id}` : null;
+                const detailLink = `/event/${event.id}`;
+                const eventDate = event.date || (event.starts_at ? new Date(event.starts_at).toLocaleDateString() : 'Date to be announced');
                 const cardContent = (
                   <motion.div
                     key={event.id || i}
@@ -406,38 +290,27 @@ export default function LandingPage() {
                     className="p-6 glass rounded-2xl group hover:bg-white/[0.06] transition-colors relative overflow-hidden flex flex-col"
                   >
                     <div className="absolute top-4 right-4 text-5xl font-display font-black text-white/[0.04] group-hover:text-white/[0.08] transition-colors select-none">
-                      {event.num}
+                      {String(i + 1).padStart(2, '0')}
                     </div>
-                    <div className="aspect-video mb-6 rounded-xl overflow-hidden bg-white/5">
+                    {event.highlight_image_url && <div className="aspect-video mb-6 rounded-xl overflow-hidden bg-white/5">
                       <img
-                        src={event.image_url}
+                        src={event.highlight_image_url}
                         alt={event.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
                       />
-                    </div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-3">{event.date} • {event.time}</p>
+                    </div>}
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-3">{eventDate}</p>
                     <h3 className="font-display font-bold text-lg mb-2">{event.title}</h3>
                     <div className="flex items-center gap-1.5 text-xs text-white/40 mb-4">
                       <Globe className="w-3 h-3" />
-                      <span>{event.place}</span>
+                      <span>{event.location || 'Location to be announced'}</span>
                     </div>
-                    <p className="text-sm text-white/50 leading-relaxed">{event.highlight}</p>
-                    {detailLink && (
-                      <div className="flex items-center gap-1 text-xs text-white/60 mt-auto pt-4 opacity-0 group-hover:opacity-100 transition-all">
-                        <span>View Details</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </div>
-                    )}
+                    {event.highlight_note && <p className="text-sm text-white/50 leading-relaxed">{event.highlight_note}</p>}
+                    <div className="flex items-center gap-1 text-xs text-white/60 mt-auto pt-4 opacity-0 group-hover:opacity-100 transition-all"><span>View Details</span><ArrowRight className="w-3 h-3" /></div>
                   </motion.div>
                 );
 
-                return detailLink ? (
-                  <Link key={event.id || i} to={detailLink} className="block">
-                    {cardContent}
-                  </Link>
-                ) : (
-                  <div key={event.id || i}>{cardContent}</div>
-                );
+                return <Link key={event.id || i} to={detailLink} className="block">{cardContent}</Link>;
               })}
             </div>
           </div>
@@ -617,6 +490,24 @@ export default function LandingPage() {
           </div>
         </section>
 
+        <section id="members" className="py-24 px-6 border-t border-white/5 bg-white/[0.02]">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-12 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="mb-3 text-xs font-bold uppercase tracking-[0.25em] text-white/30">People of Talkware</p>
+                <h2 className="text-4xl md:text-5xl font-display font-bold text-gradient">Community Members</h2>
+                <p className="mt-4 max-w-xl text-white/50">Builders who chose to share their community profile publicly.</p>
+              </div>
+              <Link to={joinHref} className="inline-flex items-center gap-2 self-start rounded-xl border border-white/15 px-5 py-3 text-sm font-bold hover:bg-white hover:text-black md:self-auto">Join them <ArrowRight className="h-4 w-4" /></Link>
+            </div>
+            {members.length > 0 ? (
+              <MemberNetwork members={members} selectedId={selectedMemberId} onSelect={member => setSelectedMemberId(member.user_id)} />
+            ) : (
+              <div className="glass rounded-3xl p-12 text-center text-white/35">Approved members can opt in to appear here.</div>
+            )}
+          </div>
+        </section>
+
       </main>
 
       {/* Footer */}
@@ -643,6 +534,7 @@ export default function LandingPage() {
                 <li><a href="#past-events" className="hover:text-white transition-colors">Past Events</a></li>
                 <li><a href="#story" className="hover:text-white transition-colors">Our Story</a></li>
                 <li><a href="#contributors" className="hover:text-white transition-colors">The Team</a></li>
+                <li><a href="#members" className="hover:text-white transition-colors">Community Members</a></li>
               </ul>
             </div>
 

@@ -24,6 +24,9 @@ Top-level router and splash orchestration.
 - Routes:
   - `/` -> `LandingPage`
   - `/event/:id` -> `EventDetailPage`
+  - `/auth` and `/auth/callback` -> Google OAuth plus manual email/password registration, sign-in, and verification callback
+  - `/join` and `/application-status` -> membership application workflow
+  - `/community/*` -> protected member home, events, updates, QR pass, and profile
 
 ### `src/components/SplashScreen.tsx`
 
@@ -34,7 +37,8 @@ Intro screen component shown before route content. It receives an `onFinish` cal
 Public landing page.
 
 - Reads public data from Supabase.
-- Shows mission, upcoming events, past event highlights, story, founding team, co-creators, volunteers, and footer/contact areas.
+- Shows mission, past event highlights, story, contributors, opt-in approved community members, and footer/contact areas.
+- Upcoming announcements have moved to the protected member portal.
 - Uses fallback hardcoded past highlights only when the `highlights` table returns no rows.
 - Uses `events.archived = false` for public upcoming events.
 - Links past event cards to `/event/:event_id` when a highlight has `event_id`.
@@ -46,6 +50,13 @@ Public event detail page.
 - Reads one event by route `id`.
 - Reads `event_media`, `event_sections`, and linked `highlights`.
 - Supports photo galleries, YouTube embeds, local video URLs, section groups, and related highlights.
+- Supports public guest registration, member registration/waitlists, sharing, and approved-member resource downloads.
+
+### Member modules
+
+- `src/contexts/AuthContext.tsx` restores Supabase sessions, supports Google and email/password authentication, and loads the member application/profile/staff state.
+- `src/components/MemberRoute.tsx` gates `/community/*` by approval, while staff retain access.
+- `src/pages/community/*` implements announcements, registrations, update reactions, member profiles, and QR passes.
 
 ### `src/lib/supabase.ts`
 
@@ -61,7 +72,7 @@ The administration UI is maintained in the sibling project `../talkware_admin_hu
 
 ### `database_schema.sql`
 
-Current canonical setup script for contributors. It includes:
+Complete clean-install schema. Existing deployments use the ordered migrations under `supabase/migrations`. The schema includes:
 
 - Main content tables.
 - Live contributor tables.
@@ -72,6 +83,7 @@ Current canonical setup script for contributors. It includes:
 - RLS policies.
 - Public `assets` bucket creation.
 - Storage policies for the `assets` bucket.
+- Member applications/profiles, explicit staff roles, posts/reactions, event registrations/waitlists, resources, private storage, passes, attendance, and hardened helper functions.
 
 ### Local-only SQL Archive
 
