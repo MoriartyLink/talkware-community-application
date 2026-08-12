@@ -39,7 +39,7 @@ export default function CommunityHomePage() {
       <div className="mt-10 grid gap-4 sm:grid-cols-3">
         <Link to="/community/events" className="glass group rounded-2xl p-5 hover:bg-white/10"><CalendarDays className="mb-6 h-6 w-6 text-white/50" /><span className="flex items-center justify-between font-bold">Browse events <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></span></Link>
         <Link to="/community/updates" className="glass group rounded-2xl p-5 hover:bg-white/10"><Newspaper className="mb-6 h-6 w-6 text-white/50" /><span className="flex items-center justify-between font-bold">Community updates <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></span></Link>
-        <Link to="/community/pass" className="glass group rounded-2xl p-5 hover:bg-white/10"><QrCode className="mb-6 h-6 w-6 text-white/50" /><span className="flex items-center justify-between font-bold">Open my QR <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></span></Link>
+        <Link to="/community/profile#member-qr" className="glass group rounded-2xl p-5 hover:bg-white/10"><QrCode className="mb-6 h-6 w-6 text-white/50" /><span className="flex items-center justify-between font-bold">Open my QR <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></span></Link>
       </div>
 
       <section className="mt-14">

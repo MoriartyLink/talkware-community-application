@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Navigate, Routes, Route } from "react-router-dom";
 import { lazy, Suspense, useState } from "react";
 import SplashScreen from "./components/SplashScreen";
 import FullPageLoader from "./components/FullPageLoader";
@@ -10,13 +10,14 @@ const LandingPage = lazy(() => import('./pages/LandingPage'));
 const EventDetailPage = lazy(() => import('./pages/EventDetailPage'));
 const AuthPage = lazy(() => import('./pages/AuthPage'));
 const AuthCallbackPage = lazy(() => import('./pages/AuthCallbackPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 const ApplicationPage = lazy(() => import('./pages/ApplicationPage'));
 const ApplicationStatusPage = lazy(() => import('./pages/ApplicationStatusPage'));
 const CommunityLayout = lazy(() => import('./components/CommunityLayout'));
 const CommunityHomePage = lazy(() => import('./pages/community/CommunityHomePage'));
 const CommunityEventsPage = lazy(() => import('./pages/community/CommunityEventsPage'));
 const CommunityUpdatesPage = lazy(() => import('./pages/community/CommunityUpdatesPage'));
-const MemberPassPage = lazy(() => import('./pages/community/MemberPassPage'));
+const MemberPointsPage = lazy(() => import('./pages/member/MemberPointsPage'));
 const MemberProfilePage = lazy(() => import('./pages/community/MemberProfilePage'));
 
 export default function App() {
@@ -41,6 +42,7 @@ export default function App() {
                   <Route path="/event/:id" element={<EventDetailPage />} />
                   <Route path="/auth" element={<AuthPage />} />
                   <Route path="/auth/callback" element={<AuthCallbackPage />} />
+                  <Route path="/reset-password" element={<ResetPasswordPage />} />
                   <Route path="/join" element={<ApplicationPage />} />
                   <Route path="/application-status" element={<ApplicationStatusPage />} />
                   <Route element={<MemberRoute />}>
@@ -48,8 +50,12 @@ export default function App() {
                       <Route index element={<CommunityHomePage />} />
                       <Route path="events" element={<CommunityEventsPage />} />
                       <Route path="updates" element={<CommunityUpdatesPage />} />
-                      <Route path="pass" element={<MemberPassPage />} />
+                      <Route path="pass" element={<Navigate to="/community/profile#member-qr" replace />} />
+                      <Route path="points" element={<Navigate to="/member/points" replace />} />
                       <Route path="profile" element={<MemberProfilePage />} />
+                    </Route>
+                    <Route path="/member" element={<CommunityLayout />}>
+                      <Route path="points" element={<MemberPointsPage />} />
                     </Route>
                   </Route>
                 </Routes>

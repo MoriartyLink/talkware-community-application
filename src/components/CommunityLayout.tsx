@@ -1,18 +1,38 @@
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { CalendarDays, Home, LogOut, Newspaper, QrCode, UserRound } from 'lucide-react';
+import { CalendarDays, Coins, Home, LogOut, Newspaper, QrCode, UserRound, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import MemberPassCard from './MemberPassCard';
 
 const links = [
   { to: '/community', label: 'Home', icon: Home, end: true },
   { to: '/community/events', label: 'Events', icon: CalendarDays },
   { to: '/community/updates', label: 'Updates', icon: Newspaper },
-  { to: '/community/pass', label: 'My QR', icon: QrCode },
+  { to: '/member/points', label: 'Points', icon: Coins },
   { to: '/community/profile', label: 'Profile', icon: UserRound },
 ];
 
 export default function CommunityLayout() {
   const { profile, session, signOut } = useAuth();
   const navigate = useNavigate();
+  const [qrOpen, setQrOpen] = useState(false);
+  const qrMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!qrOpen) return;
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!qrMenuRef.current?.contains(event.target as Node)) setQrOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setQrOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [qrOpen]);
   const leave = async () => {
     await signOut();
     navigate('/', { replace: true });
@@ -28,6 +48,10 @@ export default function CommunityLayout() {
           </Link>
           <div className="flex items-center gap-3">
             <div className="hidden text-right sm:block"><p className="text-sm font-semibold">{profile?.display_name || session?.user.email}</p><p className="text-xs text-emerald-300/70">Approved member</p></div>
+            <div ref={qrMenuRef} className="relative">
+              <button type="button" onClick={() => setQrOpen(current => !current)} aria-expanded={qrOpen} aria-haspopup="dialog" aria-label="Open member QR" className={`rounded-xl border p-2.5 transition ${qrOpen ? 'border-white bg-white text-black' : 'border-white/10 text-white/50 hover:bg-white/10 hover:text-white'}`}><QrCode className="h-4 w-4" /></button>
+              {qrOpen && <div role="dialog" aria-label="Member QR pass" className="absolute right-0 top-12 z-50 w-[min(340px,calc(100vw-2rem))] rounded-3xl border border-white/10 bg-neutral-950 p-3 shadow-2xl shadow-black/60"><div className="mb-3 flex items-center justify-between px-2 pt-1"><div><p className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">Attendance pass</p><p className="mt-1 font-bold text-white">My member QR</p></div><button type="button" onClick={() => setQrOpen(false)} aria-label="Close member QR" className="rounded-lg p-2 text-white/40 hover:bg-white/10 hover:text-white"><X className="h-4 w-4" /></button></div><MemberPassCard compact /></div>}
+            </div>
             <button onClick={leave} className="rounded-xl border border-white/10 p-2.5 text-white/50 hover:bg-white/10 hover:text-white" aria-label="Sign out"><LogOut className="h-4 w-4" /></button>
           </div>
         </div>

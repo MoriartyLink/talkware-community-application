@@ -33,7 +33,7 @@ Talkware Admin Hub `/`
 - The Community tab reviews membership applications and publishes member updates.
 - Members can create an account with verified email/password or Google, then submit the same application from `/join`; staff review both paths here.
 - Event operations show member/guest registrations and waitlist status, and upload presentation files to the private `event-resources` bucket.
-- QR check-in selects an event, scans an opaque member pass, validates confirmed registration, and records one attendance row.
+- QR check-in selects an event, scans an opaque member pass, validates confirmed registration, and records one attendance row. The database automatically awards 5 points for Meetup attendance or 10 points for Training attendance.
 - Existing Auth users are bootstrapped as admins by the member migration because Auth was admin-only before public Google signup.
 
 ## Shared Tables by Feature

@@ -4,7 +4,7 @@
 
 Use `database_schema.sql` for a clean installation. Apply the ordered files in `supabase/migrations` to existing deployments. Older SQL helper scripts are local-only and ignored.
 
-The member portal adds `member_profiles`, `membership_applications`, `staff_roles`, `member_passes`, `community_posts`, `post_reactions`, `event_registrations`, `event_resources`, and `event_attendance`. Public tables use explicit Data API grants and RLS; presentation files live in the private `event-resources` bucket.
+The member portal adds `member_profiles`, `membership_applications`, `staff_roles`, `member_passes`, `community_posts`, `post_reactions`, `event_registrations`, `event_resources`, `event_attendance`, and `point_ledger`. Public tables use explicit Data API grants and RLS; presentation files live in the private `event-resources` bucket.
 
 Membership applications are always submitted by an authenticated member account. Both verified email/password registration and Google OAuth produce that Auth identity, and RLS requires the application email to match the signed-in user's JWT email.
 
@@ -149,6 +149,7 @@ Stores structured event detail content blocks.
 - Public users can read published events and event content, past highlights, contributors, and approved opt-in member profiles.
 - Approved members can read community posts and resources and can manage only their own profile, registration status, and reaction.
 - Staff writes require an `admin` or `organizer` row in `staff_roles`; authentication alone grants no content-management permission.
+- Verified member attendance creates one private `point_ledger` award: 5 points for a Meetup or 10 points for a Training. Members read only their own ledger; staff can read all ledgers.
 - Supabase Storage bucket `assets` is expected to be public.
 - Public users can read `storage.objects` for `assets`.
 - Staff manage `assets` and the private `event-resources` bucket; approved members can read event resources.
@@ -157,4 +158,5 @@ Stores structured event detail content blocks.
 
 - `highlights.event_id` optionally links a past event card to an event detail page.
 - `event_media.event_id` and `event_sections.event_id` belong to one event.
+- `point_ledger.attendance_id` uniquely links an immutable award to one verified check-in; deleting that attendance cascades to its award.
 - Deleting an event cascades to its media and sections.

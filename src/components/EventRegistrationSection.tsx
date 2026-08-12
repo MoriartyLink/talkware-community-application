@@ -118,7 +118,7 @@ export default function EventRegistrationSection({ event }: EventRegistrationSec
                   </div>
                   <p className="mt-4 text-sm text-white/45">At the event, open your personal QR and let an organizer scan it.</p>
                   <div className="mt-5 flex flex-wrap gap-2">
-                    <Link to="/community/pass" className="rounded-xl bg-white px-4 py-3 text-sm font-bold text-black">Open my QR</Link>
+                    <Link to="/community/profile#member-qr" className="rounded-xl bg-white px-4 py-3 text-sm font-bold text-black">Open my QR</Link>
                     <button disabled={actionLoading} onClick={cancelRegistration} className="rounded-xl border border-red-400/25 px-4 py-3 text-sm font-bold text-red-200 hover:bg-red-400/10 disabled:opacity-40">Cancel registration</button>
                   </div>
                 </div>
