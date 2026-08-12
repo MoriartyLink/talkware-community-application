@@ -6,7 +6,7 @@ A modern public landing page for the Talkware Community, a home for tech builder
 
 - Public landing page with mission, past events, team, and opt-in community member profiles
 - Google OAuth or verified email/password registration, followed by a member application and admin approval
-- Protected member portal for event announcements, registrations, resources, update reactions, profiles, and personal QR passes
+- Protected member portal for event announcements, registrations, resources, update reactions, profiles, attendance points, and personal QR passes
 - Public shareable event pages with guest registration
 - Supabase PostgreSQL, Auth, private/public Storage, transactional registration, and row-level security
 
@@ -51,7 +51,9 @@ Enable email/password signups with email confirmation in Supabase Auth. Enable t
 
 ```text
 http://localhost:3000/auth/callback
+http://localhost:3000/reset-password
 https://YOUR_PRODUCTION_DOMAIN/auth/callback
+https://YOUR_PRODUCTION_DOMAIN/reset-password
 ```
 
 For hosted/public registration, configure **Authentication → SMTP Settings** with a custom SMTP provider and a verified sender domain. Supabase's default sender is limited to organization team addresses and is not suitable for community signups. Also verify **Authentication → URL Configuration** has the production Site URL and callback URL. For local development, confirmation messages do not reach a real inbox; open Mailpit at `http://127.0.0.1:55324` after `npx supabase start`.

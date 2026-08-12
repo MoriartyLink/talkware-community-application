@@ -103,3 +103,16 @@ export interface MemberPass {
   issued_at: string;
   rotated_at: string | null;
 }
+
+export interface PointLedgerEntry {
+  id: string;
+  member_id: string;
+  event_id: string;
+  attendance_id: string;
+  points: number;
+  reason: string;
+  event_type: CommunityEvent['type'];
+  earned_at: string;
+  created_at: string;
+  event: Pick<CommunityEvent, 'title' | 'type'> | null;
+}

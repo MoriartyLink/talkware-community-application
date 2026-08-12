@@ -5,10 +5,10 @@ import { ArrowLeft, Chrome, LockKeyhole, Mail, UserPlus, Users } from 'lucide-re
 import { useAuth } from '../contexts/AuthContext';
 import FullPageLoader from '../components/FullPageLoader';
 
-type AuthMode = 'login' | 'register';
+type AuthMode = 'login' | 'register' | 'forgot';
 
 export default function AuthPage() {
-  const { session, application, staffRole, loading, signInWithGoogle, signInWithPassword, signUpWithPassword, resendSignupConfirmation } = useAuth();
+  const { session, application, staffRole, loading, signInWithGoogle, signInWithPassword, signUpWithPassword, resendSignupConfirmation, sendPasswordReset } = useAuth();
   const location = useLocation();
   const [mode, setMode] = useState<AuthMode>(() => new URLSearchParams(location.search).get('mode') === 'register' ? 'register' : 'login');
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
@@ -50,7 +50,11 @@ export default function AuthPage() {
     setError('');
     setMessage('');
     try {
-      if (mode === 'register') {
+      if (mode === 'forgot') {
+        await sendPasswordReset(form.email);
+        setMessage('If an account exists for that email, a password reset link is on its way. Check your inbox and spam folder.');
+        setSubmitting(false);
+      } else if (mode === 'register') {
         if (form.password !== form.confirmPassword) throw new Error('Passwords do not match.');
         const needsConfirmation = await signUpWithPassword(form.name, form.email, form.password);
         if (needsConfirmation) {
@@ -99,15 +103,15 @@ export default function AuthPage() {
             <Users className="h-7 w-7" />
           </div>
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.25em] text-white/35">Member community</p>
-          <h1 className="mb-3 text-4xl font-bold">{mode === 'register' ? 'Join Talkware' : 'Member sign in'}</h1>
+          <h1 className="mb-3 text-4xl font-bold">{mode === 'register' ? 'Join Talkware' : mode === 'forgot' ? 'Reset password' : 'Member sign in'}</h1>
           <p className="mb-7 leading-relaxed text-white/55">
-            {mode === 'register' ? 'Create an account, then submit your community membership application.' : 'Sign in to check your application or open the member community.'}
+            {mode === 'register' ? 'Create an account, then submit your community membership application.' : mode === 'forgot' ? 'Enter your account email and we’ll send you a secure link to choose a new password.' : 'Sign in to check your application or open the member community.'}
           </p>
 
-          <div className="mb-6 grid grid-cols-2 rounded-xl bg-white/5 p-1">
+          {mode !== 'forgot' && <div className="mb-6 grid grid-cols-2 rounded-xl bg-white/5 p-1">
             <button type="button" onClick={() => changeMode('login')} className={`rounded-lg px-3 py-2.5 text-sm font-bold ${mode === 'login' ? 'bg-white text-black' : 'text-white/45'}`}>Sign in</button>
             <button type="button" onClick={() => changeMode('register')} className={`rounded-lg px-3 py-2.5 text-sm font-bold ${mode === 'register' ? 'bg-white text-black' : 'text-white/45'}`}>Create account</button>
-          </div>
+          </div>}
 
           {error && <div className="mb-5 rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{error}</div>}
           {message && <div className="mb-5 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-3 text-sm leading-relaxed text-emerald-100">{message}</div>}
@@ -116,21 +120,24 @@ export default function AuthPage() {
           <form onSubmit={handleEmail} className="space-y-3">
             {mode === 'register' && <div className="relative"><UserPlus className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" /><input required minLength={2} maxLength={80} autoComplete="name" className={inputClass} placeholder="Your name" value={form.name} onChange={event => setForm(current => ({ ...current, name: event.target.value }))} /></div>}
             <div className="relative"><Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" /><input required type="email" autoComplete="email" className={inputClass} placeholder="Email address" value={form.email} onChange={event => setForm(current => ({ ...current, email: event.target.value }))} /></div>
-            <div className="relative"><LockKeyhole className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" /><input required type="password" minLength={8} autoComplete={mode === 'register' ? 'new-password' : 'current-password'} className={inputClass} placeholder="Password" value={form.password} onChange={event => setForm(current => ({ ...current, password: event.target.value }))} /></div>
+            {mode !== 'forgot' && <div className="relative"><LockKeyhole className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" /><input required type="password" minLength={8} autoComplete={mode === 'register' ? 'new-password' : 'current-password'} className={inputClass} placeholder="Password" value={form.password} onChange={event => setForm(current => ({ ...current, password: event.target.value }))} /></div>}
             {mode === 'register' && <div className="relative"><LockKeyhole className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" /><input required type="password" minLength={8} autoComplete="new-password" className={inputClass} placeholder="Confirm password" value={form.confirmPassword} onChange={event => setForm(current => ({ ...current, confirmPassword: event.target.value }))} /></div>}
             <button disabled={submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3.5 font-bold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50">
               {mode === 'register' ? <UserPlus className="h-4 w-4" /> : <LockKeyhole className="h-4 w-4" />}
-              {submitting ? 'Please wait…' : mode === 'register' ? 'Create account & apply' : 'Sign in with email'}
+              {submitting ? 'Please wait…' : mode === 'register' ? 'Create account & apply' : mode === 'forgot' ? 'Send reset link' : 'Sign in with email'}
             </button>
           </form>
 
-          <div className="my-6 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white/25"><span className="h-px flex-1 bg-white/10" /> or <span className="h-px flex-1 bg-white/10" /></div>
+          {mode === 'login' && <button type="button" onClick={() => changeMode('forgot')} className="mt-4 w-full text-center text-sm font-semibold text-white/55 hover:text-white">Forgot password?</button>}
+          {mode === 'forgot' && <button type="button" onClick={() => changeMode('login')} className="mt-4 w-full text-center text-sm font-semibold text-white/55 hover:text-white">Back to sign in</button>}
+
+          {mode !== 'forgot' && <><div className="my-6 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white/25"><span className="h-px flex-1 bg-white/10" /> or <span className="h-px flex-1 bg-white/10" /></div>
           <button onClick={handleGoogle} disabled={submitting} className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/15 px-5 py-3.5 font-bold transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50">
             <Chrome className="h-5 w-5" /> Continue with Google
-          </button>
-          <p className="mt-6 text-center text-xs leading-relaxed text-white/30">
+          </button></>}
+          {mode !== 'forgot' && <p className="mt-6 text-center text-xs leading-relaxed text-white/30">
             New accounts complete a short member application. Community access starts after admin approval.
-          </p>
+          </p>}
         </div>
       </div>
     </div>

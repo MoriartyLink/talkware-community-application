@@ -1,19 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Camera, Save, Trash2, Upload } from 'lucide-react';
+import { Camera, ChevronDown, KeyRound, Mail, QrCode, Save, Trash2, Upload } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import MemberPassCard from '../../components/MemberPassCard';
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
 export default function MemberProfilePage() {
-  const { profile, session, refreshMembership } = useAuth();
+  const location = useLocation();
+  const { profile, session, refreshMembership, sendPasswordReset, updatePassword } = useAuth();
   const [form, setForm] = useState({ displayName: '', headline: '', bio: '', skills: '', avatarUrl: '', githubUrl: '', linkedinUrl: '', telegramUrl: '', contactEmail: '', publicListing: false });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ password: '', confirmPassword: '' });
+  const [passwordNotice, setPasswordNotice] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [qrOpen, setQrOpen] = useState(() => window.location.hash === '#member-qr');
   const avatarPreview = useMemo(() => avatarFile ? URL.createObjectURL(avatarFile) : form.avatarUrl, [avatarFile, form.avatarUrl]);
 
   useEffect(() => () => { if (avatarPreview?.startsWith('blob:')) URL.revokeObjectURL(avatarPreview); }, [avatarPreview]);
+  useEffect(() => {
+    if (location.hash === '#member-qr') setQrOpen(true);
+  }, [location.hash]);
   useEffect(() => {
     if (!profile) return;
     setForm({
@@ -29,7 +39,6 @@ export default function MemberProfilePage() {
       publicListing: profile.public_listing,
     });
   }, [profile]);
-
   const update = (field: keyof typeof form, value: string | boolean) => setForm(current => ({ ...current, [field]: value }));
   const inputClass = 'w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-white/35';
 
@@ -80,10 +89,50 @@ export default function MemberProfilePage() {
     }
   };
 
+  const savePassword = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setPasswordNotice('');
+    if (passwordForm.password !== passwordForm.confirmPassword) {
+      setPasswordNotice('Passwords do not match.');
+      return;
+    }
+    setPasswordSaving(true);
+    try {
+      await updatePassword(passwordForm.password);
+      setPasswordForm({ password: '', confirmPassword: '' });
+      setPasswordNotice('Password updated successfully.');
+    } catch (error) {
+      setPasswordNotice(error instanceof Error ? error.message : 'Unable to update your password.');
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
+  const emailResetLink = async () => {
+    if (!session?.user.email) return;
+    setPasswordSaving(true);
+    setPasswordNotice('');
+    try {
+      await sendPasswordReset(session.user.email);
+      setPasswordNotice('A password reset link was sent to your account email.');
+    } catch (error) {
+      setPasswordNotice(error instanceof Error ? error.message : 'Unable to send a password reset link.');
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
   return <div>
     <p className="mb-3 text-xs font-bold uppercase tracking-[0.24em] text-white/35">Member profile</p>
     <h1 className="text-4xl font-bold md:text-6xl">Member Card</h1>
     <p className="mt-4 max-w-2xl text-white/50">Build your community profile and choose whether it appears in the public Talkware member network.</p>
+    <section id="member-qr" className="glass mt-9 max-w-3xl scroll-mt-24 rounded-3xl p-5 md:p-6">
+      <button type="button" onClick={() => setQrOpen(current => !current)} aria-expanded={qrOpen} aria-controls="member-qr-card" className="flex w-full items-center justify-between gap-4 text-left">
+        <span className="flex items-center gap-3"><span className="rounded-xl bg-white/5 p-2.5"><QrCode className="h-5 w-5 text-white/55" /></span><span><span className="block text-xs font-bold uppercase tracking-[0.22em] text-white/35">Attendance pass</span><span className="mt-1 block text-xl font-bold">My member QR</span></span></span>
+        <ChevronDown className={`h-5 w-5 shrink-0 text-white/40 transition-transform ${qrOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {qrOpen && <div id="member-qr-card" className="mt-6 border-t border-white/10 pt-6"><p className="mb-5 max-w-2xl text-sm text-white/45">Show this pass to an organizer at a registered event. It contains an opaque token and no personal information.</p><MemberPassCard /></div>}
+    </section>
     <form onSubmit={save} className="glass mt-9 max-w-3xl rounded-3xl p-5 md:p-8">
       <section className="mb-7 flex flex-col gap-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:flex-row sm:items-center">
         <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/15 bg-white/5">
@@ -105,5 +154,19 @@ export default function MemberProfilePage() {
       {notice && <div className="mt-6 rounded-xl border border-white/10 p-3 text-sm text-white/60">{notice}</div>}
       <button disabled={saving} className="mt-7 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 font-bold text-black disabled:opacity-50"><Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save Member Card'}</button>
     </form>
+    <section className="glass mt-7 max-w-3xl rounded-3xl p-5 md:p-8">
+      <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/35">Account security</p>
+      <h2 className="mt-2 text-2xl font-bold">Password</h2>
+      <p className="mt-2 text-sm leading-relaxed text-white/45">Choose a new password here, or email yourself a secure reset link if you prefer.</p>
+      <form onSubmit={savePassword} className="mt-6 grid gap-4 md:grid-cols-2">
+        <label className="space-y-2"><span className="text-sm font-semibold">New password</span><input required type="password" minLength={8} autoComplete="new-password" className={inputClass} value={passwordForm.password} onChange={event => setPasswordForm(current => ({ ...current, password: event.target.value }))} /></label>
+        <label className="space-y-2"><span className="text-sm font-semibold">Confirm new password</span><input required type="password" minLength={8} autoComplete="new-password" className={inputClass} value={passwordForm.confirmPassword} onChange={event => setPasswordForm(current => ({ ...current, confirmPassword: event.target.value }))} /></label>
+        <div className="flex flex-wrap gap-3 md:col-span-2">
+          <button disabled={passwordSaving} className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 font-bold text-black disabled:opacity-50"><KeyRound className="h-4 w-4" /> {passwordSaving ? 'Please wait…' : 'Change password'}</button>
+          {session?.user.email && <button type="button" disabled={passwordSaving} onClick={emailResetLink} className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-5 py-3 font-bold text-white disabled:opacity-50"><Mail className="h-4 w-4" /> Email reset link</button>}
+        </div>
+      </form>
+      {passwordNotice && <div className="mt-5 rounded-xl border border-white/10 p-3 text-sm text-white/60">{passwordNotice}</div>}
+    </section>
   </div>;
 }
