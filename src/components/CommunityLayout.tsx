@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { CalendarDays, Coins, Home, LogOut, Newspaper, QrCode, UserRound, X } from 'lucide-react';
+import { Boxes, CalendarDays, Coins, Home, LogOut, Newspaper, QrCode, UserRound, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import MemberPassCard from './MemberPassCard';
 
@@ -8,6 +8,7 @@ const links = [
   { to: '/community', label: 'Home', icon: Home, end: true },
   { to: '/community/events', label: 'Events', icon: CalendarDays },
   { to: '/community/updates', label: 'Updates', icon: Newspaper },
+  { to: '/community/mini-apps', label: 'Mini Apps', icon: Boxes },
   { to: '/member/points', label: 'Points', icon: Coins },
   { to: '/community/profile', label: 'Profile', icon: UserRound },
 ];
@@ -68,7 +69,7 @@ export default function CommunityLayout() {
         </aside>
         <main className="min-w-0 px-5 py-8 pb-28 md:px-10 md:py-12 md:pb-12"><Outlet /></main>
       </div>
-      <nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-5 border-t border-white/10 bg-black/90 px-1 py-2 backdrop-blur-xl md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-6 border-t border-white/10 bg-black/90 px-1 py-2 backdrop-blur-xl md:hidden">
         {links.map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end} className={({ isActive }) => `flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] font-semibold ${isActive ? 'bg-white text-black' : 'text-white/45'}`}>
             <Icon className="h-4 w-4" /> {label}
