@@ -211,6 +211,22 @@ create table if not exists public.member_profiles (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.media_archives (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  media_kind text not null check (media_kind in ('avatar', 'event_image', 'general_image')),
+  provider text not null default 'google_drive' check (provider = 'google_drive'),
+  provider_file_id text not null,
+  provider_folder_id text,
+  storage_bucket text not null,
+  storage_path text not null,
+  original_filename text not null check (char_length(original_filename) between 1 and 255),
+  mime_type text not null check (mime_type like 'image/%'),
+  file_size bigint not null check (file_size > 0),
+  created_at timestamptz not null default now(),
+  unique (provider, provider_file_id)
+);
+
 create table if not exists public.membership_applications (
   user_id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
@@ -329,6 +345,8 @@ create index if not exists events_member_directory_idx
   on public.events(published, archived, starts_at);
 create index if not exists member_profiles_public_idx
   on public.member_profiles(public_listing, display_name);
+create index if not exists media_archives_owner_created_idx
+  on public.media_archives(owner_id, created_at desc);
 create index if not exists membership_applications_status_idx
   on public.membership_applications(status, submitted_at);
 create index if not exists community_posts_published_idx
@@ -735,6 +753,7 @@ grant execute on function public.register_guest_for_event(uuid, text, text, text
 grant execute on function public.record_event_attendance(uuid, uuid) to authenticated;
 
 alter table public.member_profiles enable row level security;
+alter table public.media_archives enable row level security;
 alter table public.membership_applications enable row level security;
 alter table public.staff_roles enable row level security;
 alter table public.member_passes enable row level security;
@@ -795,6 +814,10 @@ create policy "Members update own profile" on public.member_profiles for update 
   with check ((select auth.uid()) = user_id or private.is_staff());
 create policy "Staff delete profiles" on public.member_profiles for delete to authenticated
   using (private.is_staff());
+
+drop policy if exists "Owners and staff read media archives" on public.media_archives;
+create policy "Owners and staff read media archives" on public.media_archives for select to authenticated
+  using ((select auth.uid()) = owner_id or private.is_staff());
 
 create policy "Application visibility" on public.membership_applications for select to authenticated
   using ((select auth.uid()) = user_id or private.can_review_members());
@@ -884,6 +907,8 @@ grant select, insert, update, delete on public.events, public.co_creators,
   public.volunteers, public.founding_team, public.contributor_tags, public.contributors,
   public.event_media, public.event_sections to authenticated;
 grant select, insert, update on public.member_profiles to authenticated;
+revoke all on public.media_archives from anon, authenticated;
+grant select on public.media_archives to authenticated;
 grant select, insert, update on public.membership_applications to authenticated;
 grant select, insert, update, delete on public.staff_roles, public.member_passes,
   public.community_posts, public.post_reactions, public.event_resources,

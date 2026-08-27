@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, CalendarDays, Newspaper, QrCode } from 'lucide-react';
+import MarkdownContent from '../../components/MarkdownContent';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { formatEventDate } from '../../lib/community';
@@ -52,7 +53,7 @@ export default function CommunityHomePage() {
 
       <section className="mt-14">
         <div className="mb-6 flex items-end justify-between"><div><p className="text-xs font-bold uppercase tracking-widest text-white/30">From the team</p><h2 className="mt-2 text-2xl font-bold">Latest updates</h2></div><Link to="/community/updates" className="text-sm text-white/45 hover:text-white">View all</Link></div>
-        <div className="space-y-4">{posts.map(post => <article key={post.id} className="glass rounded-2xl p-6"><h3 className="text-xl font-bold">{post.title}</h3><p className="mt-3 line-clamp-3 whitespace-pre-wrap text-sm leading-relaxed text-white/50">{post.body}</p></article>)}{posts.length === 0 && <div className="glass rounded-2xl p-8 text-center text-white/40">Community updates will appear here.</div>}</div>
+        <div className="space-y-4">{posts.map(post => <article key={post.id} className="glass rounded-2xl p-6"><h3 className="text-xl font-bold">{post.title}</h3><MarkdownContent compact className="mt-3 line-clamp-3 text-sm leading-relaxed text-white/50">{post.body}</MarkdownContent></article>)}{posts.length === 0 && <div className="glass rounded-2xl p-8 text-center text-white/40">Community updates will appear here.</div>}</div>
       </section>
     </div>
   );
