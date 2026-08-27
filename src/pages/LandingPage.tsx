@@ -90,7 +90,7 @@ export default function LandingPage() {
     async function fetchData() {
       try {
         const [eventsData, contributorsData, membersData] = await Promise.all([
-          supabase.from('events').select('id, title, date, location, starts_at, highlight_image_url, highlight_note').eq('published', true).eq('archived', true).order('starts_at', { ascending: false, nullsFirst: false }),
+          supabase.from('events').select('id, title, date, location, starts_at, highlight_image_url, highlight_note').eq('published', true).eq('archived', true).order('starts_at', { ascending: true, nullsFirst: false }),
           supabase.from('contributors').select('*').order('points', { ascending: false }).order('created_at', { ascending: true }),
           supabase.from('member_profiles').select('user_id, display_name, avatar_url, headline, bio, skills, github_url, linkedin_url, telegram_url, contact_email').eq('public_listing', true).order('display_name', { ascending: true })
         ]);

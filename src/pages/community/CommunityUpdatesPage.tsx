@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Heart, Sparkles, ThumbsUp } from 'lucide-react';
+import MarkdownContent from '../../components/MarkdownContent';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import type { CommunityPost, PostReaction, ReactionType } from '../../types/community';
@@ -47,7 +48,7 @@ export default function CommunityUpdatesPage() {
       <div className="mt-9 space-y-6">
         {posts.map(post => {
           const mine = reactions.find(item => item.post_id === post.id && item.member_id === session!.user.id)?.reaction;
-          return <article key={post.id} className="glass rounded-3xl p-6 md:p-8"><div className="mb-5 flex flex-wrap items-start justify-between gap-3"><h2 className="text-2xl font-bold">{post.title}</h2><time className="text-xs text-white/30">{new Date(post.published_at || post.created_at).toLocaleDateString()}</time></div><p className="whitespace-pre-wrap leading-7 text-white/60">{post.body}</p><div className="mt-7 flex flex-wrap gap-2">{reactionOptions.map(({ value, label, icon: Icon }) => <button key={value} onClick={() => react(post.id, value)} className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold transition ${mine === value ? 'border-white bg-white text-black' : 'border-white/10 text-white/45 hover:border-white/30 hover:text-white'}`}><Icon className="h-3.5 w-3.5" /> {label} <span className="opacity-60">{counts[`${post.id}:${value}`] || 0}</span></button>)}</div></article>;
+          return <article key={post.id} className="glass rounded-3xl p-6 md:p-8"><div className="mb-5 flex flex-wrap items-start justify-between gap-3"><h2 className="text-2xl font-bold">{post.title}</h2><time className="text-xs text-white/30">{new Date(post.published_at || post.created_at).toLocaleDateString()}</time></div><MarkdownContent className="leading-7">{post.body}</MarkdownContent><div className="mt-7 flex flex-wrap gap-2">{reactionOptions.map(({ value, label, icon: Icon }) => <button key={value} onClick={() => react(post.id, value)} className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold transition ${mine === value ? 'border-white bg-white text-black' : 'border-white/10 text-white/45 hover:border-white/30 hover:text-white'}`}><Icon className="h-3.5 w-3.5" /> {label} <span className="opacity-60">{counts[`${post.id}:${value}`] || 0}</span></button>)}</div></article>;
         })}
         {posts.length === 0 && <div className="glass rounded-3xl p-12 text-center text-white/40">No community updates have been published yet.</div>}
       </div>

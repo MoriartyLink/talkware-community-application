@@ -3,6 +3,7 @@ import { Camera, ChevronDown, KeyRound, Mail, QrCode, Save, Trash2, Upload } fro
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { createWebImage } from '../../lib/images';
 import MemberPassCard from '../../components/MemberPassCard';
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
@@ -56,13 +57,31 @@ export default function MemberProfilePage() {
     setSaving(true);
     setNotice('');
     let avatarUrl = form.avatarUrl.trim() || null;
+    let archiveWarning = '';
     try {
       if (avatarFile) {
-        const extension = avatarFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+        let webImage = avatarFile;
+        try {
+          webImage = await createWebImage(avatarFile);
+        } catch (error) {
+          console.warn('Avatar optimization unavailable; uploading the original web copy.', error);
+        }
+        const extension = webImage.name.split('.').pop()?.toLowerCase() || 'jpg';
         const path = `member-avatars/${session.user.id}/${crypto.randomUUID()}.${extension}`;
-        const upload = await supabase.storage.from('assets').upload(path, avatarFile, { contentType: avatarFile.type, upsert: false });
+        const upload = await supabase.storage.from('assets').upload(path, webImage, { contentType: webImage.type, upsert: false });
         if (upload.error) throw upload.error;
         avatarUrl = supabase.storage.from('assets').getPublicUrl(path).data.publicUrl;
+
+        const archiveBody = new FormData();
+        archiveBody.set('file', avatarFile);
+        archiveBody.set('mediaKind', 'avatar');
+        archiveBody.set('storageBucket', 'assets');
+        archiveBody.set('storagePath', path);
+        const { data: archive, error: archiveError } = await supabase.functions.invoke('archive-image', { body: archiveBody });
+        if (archiveError || !archive?.archived) {
+          console.warn('Google Drive avatar archive unavailable.', archiveError || archive);
+          archiveWarning = ' The web image is live, but the original was not archived to Google Drive.';
+        }
       }
       const { error } = await supabase.from('member_profiles').update({
         display_name: form.displayName.trim(),
@@ -80,7 +99,7 @@ export default function MemberProfilePage() {
       if (error) throw error;
       setAvatarFile(null);
       setForm(current => ({ ...current, avatarUrl: avatarUrl || '' }));
-      setNotice('Member Card saved.');
+      setNotice(`Member Card saved.${archiveWarning}`);
       await refreshMembership();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Unable to save your Member Card.');

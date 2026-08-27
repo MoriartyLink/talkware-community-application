@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Download, FileText } from 'lucide-react';
+import { Download, ExternalLink, FileText, FolderOpen } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { createResourceUrl } from '../lib/community';
 import { supabase } from '../lib/supabase';
@@ -8,6 +8,8 @@ import type { EventResource } from '../types/community';
 interface EventResourcesSectionProps {
   eventId: string;
 }
+
+const GOOGLE_DRIVE_RESOURCES_URL = 'https://drive.google.com/drive/folders/1slO6tNrqLGCwk-pbU1WZtwe5N3ZlrV7n?usp=drive_link';
 
 export default function EventResourcesSection({ eventId }: EventResourcesSectionProps) {
   const { application, staffRole } = useAuth();
@@ -65,8 +67,19 @@ export default function EventResourcesSection({ eventId }: EventResourcesSection
             <p className="mt-1 text-sm text-white/35">Available to every approved community member.</p>
           </div>
         </div>
-        {resources.length > 0 ? (
-          <div className="grid gap-3">
+        <div className="grid gap-3">
+          <a href={GOOGLE_DRIVE_RESOURCES_URL} target="_blank" rel="noopener noreferrer" className="glass flex items-center justify-between rounded-2xl p-5 text-left hover:bg-white/10">
+            <span className="flex min-w-0 items-center gap-3">
+              <FolderOpen className="h-5 w-5 shrink-0 text-white/45" />
+              <span className="min-w-0">
+                <span className="block font-bold">Google Drive event resources</span>
+                <span className="mt-1 block text-xs text-white/35">Shared external folder</span>
+              </span>
+            </span>
+            <ExternalLink className="h-5 w-5 shrink-0 text-white/45" />
+          </a>
+          {resources.length > 0 && (
+            <>
             {resources.map(resource => (
               <button key={resource.id} onClick={() => openResource(resource)} className="glass flex items-center justify-between rounded-2xl p-5 text-left hover:bg-white/10">
                 <span>
@@ -79,10 +92,9 @@ export default function EventResourcesSection({ eventId }: EventResourcesSection
                 <Download className="h-5 w-5 text-white/45" />
               </button>
             ))}
-          </div>
-        ) : (
-          <div className="glass rounded-2xl p-7 text-center text-sm text-white/35">Resources will appear here when organizers publish them.</div>
-        )}
+            </>
+          )}
+        </div>
         {notice && <div className="mt-5 rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-100">{notice}</div>}
       </div>
     </section>

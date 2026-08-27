@@ -109,6 +109,31 @@ Access model:
 
 Older local SQL helper scripts are intentionally ignored and are not part of the contributor setup path.
 
+## Google Drive image archive
+
+Member avatars use a hybrid image workflow:
+
+- The browser creates a WebP image no larger than 1024 pixels on its longest side and uploads it to the public Supabase `assets` bucket for fast website delivery.
+- The original JPG, PNG, or WebP is sent to the authenticated `archive-image` Edge Function and stored privately in Google Drive.
+- Supabase PostgreSQL records the relationship between the Drive original and its Supabase web copy in `media_archives`.
+- If Drive has not been configured or is temporarily unavailable, the Supabase web image still saves and the member sees an archive warning.
+
+To enable Drive archiving:
+
+1. Enable the Google Drive API in a Google Cloud project.
+2. Create an OAuth 2.0 client and authorize the Google account that owns the Drive storage with offline access and the `https://www.googleapis.com/auth/drive.file` scope.
+3. Create a private Drive folder for originals and copy its folder ID from the folder URL.
+4. Copy `supabase/functions/.env.example` to an ignored local environment file and fill in the OAuth client ID, client secret, refresh token, and folder ID.
+5. Apply the database migration, set the function secrets, and deploy the function:
+
+```bash
+npx supabase db push
+npx supabase secrets set --env-file supabase/functions/.env.local
+npx supabase functions deploy archive-image
+```
+
+Keep the Drive folder private. The production site serves only the optimized Supabase copy, and Google credentials must never use a `VITE_` prefix or be exposed to browser code.
+
 ## Contributing
 
 See `CONTRIBUTING.md` for the contribution workflow, coding standards, and pull request checklist.
