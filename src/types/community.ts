@@ -107,12 +107,49 @@ export interface MemberPass {
 export interface PointLedgerEntry {
   id: string;
   member_id: string;
-  event_id: string;
-  attendance_id: string;
+  event_id: string | null;
+  attendance_id: string | null;
   points: number;
   reason: string;
-  event_type: CommunityEvent['type'];
+  event_type: CommunityEvent['type'] | null;
+  source_type: 'event_attendance' | 'peer_session' | 'peer_session_refund';
+  source_id: string | null;
   earned_at: string;
   created_at: string;
   event: Pick<CommunityEvent, 'title' | 'type'> | null;
+}
+
+export type PeerSessionStatus = 'pending' | 'accepted' | 'declined' | 'cancelled' | 'completed';
+
+export interface PeerSessionPreference {
+  user_id: string;
+  enabled: boolean;
+  topics: string[];
+  bio: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PeerSessionMember extends Pick<MemberProfile, 'user_id' | 'display_name' | 'avatar_url' | 'headline' | 'bio' | 'skills'> {
+  peer_session_preferences: PeerSessionPreference | PeerSessionPreference[];
+}
+
+export interface PeerSessionRequest {
+  id: string;
+  requester_id: string;
+  peer_id: string;
+  topic: string;
+  description: string;
+  duration_minutes: 15 | 30 | 60;
+  points_cost: 50 | 100 | 200;
+  status: PeerSessionStatus;
+  proposed_start_at: string | null;
+  accepted_at: string | null;
+  declined_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+  updated_at: string;
+  requester: Pick<MemberProfile, 'user_id' | 'display_name' | 'avatar_url'> | null;
+  peer: Pick<MemberProfile, 'user_id' | 'display_name' | 'avatar_url'> | null;
 }

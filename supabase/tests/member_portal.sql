@@ -223,4 +223,76 @@ begin
   end if;
 end $$;
 
+-- Peer Sessions: secure opt-in, atomic spending, participant-only actions,
+-- server-side pricing, and exactly-once refunds.
+update public.point_ledger
+set points = 300
+where member_id = '22222222-2222-2222-2222-222222222222';
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '33333333-3333-3333-3333-333333333333', true);
+select set_config('request.jwt.claims', '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated","email":"two@example.com"}', true);
+insert into public.peer_session_preferences (user_id, enabled, topics, bio)
+values ('33333333-3333-3333-3333-333333333333', true, array['React', 'Design'], 'Happy to help.');
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+select set_config('request.jwt.claims', '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated","email":"one@example.com"}', true);
+select id as peer_request_id
+from public.create_peer_session_request(
+  '33333333-3333-3333-3333-333333333333', 'Architecture review',
+  'Please review the structure of my community application.', 30, now() + interval '2 days'
+);
+
+do $$
+begin
+  if (select coalesce(sum(points), 0) from public.point_ledger where member_id = auth.uid()) <> 200 then
+    raise exception 'Peer Session spending did not deduct the server-calculated cost';
+  end if;
+  if (select points_cost from public.peer_session_requests where requester_id = auth.uid()) <> 100 then
+    raise exception 'Peer Session pricing was not calculated correctly';
+  end if;
+  begin
+    perform public.create_peer_session_request(
+      auth.uid(), 'Self request', 'This request should never be created.', 15, null
+    );
+    raise exception 'Member created a request with themselves';
+  exception when raise_exception then
+    if sqlerrm = 'Member created a request with themselves' then raise; end if;
+  end;
+  begin
+    perform public.respond_to_peer_session_request(
+      (select id from public.peer_session_requests where requester_id = auth.uid()), true
+    );
+    raise exception 'Requester responded to their own outgoing request';
+  exception when raise_exception then
+    if sqlerrm = 'Requester responded to their own outgoing request' then raise; end if;
+  end;
+end $$;
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '33333333-3333-3333-3333-333333333333', true);
+select set_config('request.jwt.claims', '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated","email":"two@example.com"}', true);
+select status from public.respond_to_peer_session_request(
+  (select id from public.peer_session_requests where peer_id = auth.uid()), false
+);
+reset role;
+
+do $$
+declare
+  request_id uuid := (select id from public.peer_session_requests limit 1);
+begin
+  if (select status from public.peer_session_requests where id = request_id) <> 'declined' then
+    raise exception 'Requested peer could not decline the request';
+  end if;
+  if (select count(*) from public.point_ledger where source_type = 'peer_session_refund' and source_id = request_id) <> 1 then
+    raise exception 'Decline did not create exactly one refund';
+  end if;
+  if (select coalesce(sum(points), 0) from public.point_ledger where member_id = '22222222-2222-2222-2222-222222222222') <> 300 then
+    raise exception 'Decline did not fully restore the requester balance';
+  end if;
+end $$;
+
 rollback;
