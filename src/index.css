@@ -27,3 +27,9 @@
 .text-gradient {
   @apply bg-clip-text text-transparent bg-linear-to-r from-white via-white/80 to-white/50;
 }
+
+@layer components {
+  .field {
+    @apply w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/20 focus:border-white/30;
+  }
+}
