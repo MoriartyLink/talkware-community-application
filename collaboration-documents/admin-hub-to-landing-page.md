@@ -1,123 +1,134 @@
-# Admin Hub to Landing Page Collaboration Document
+# Admin Hub Integration Contract
 
-## Connection Overview
+The public/member application and `../talkware_admin_hub` are separate deployments connected through one Supabase project. This boundary keeps staff tooling out of the public bundle while preserving a shared source of truth.
 
-The separately deployed Admin Hub (`../talkware_admin_hub`) and this landing page are connected through shared Supabase tables. The Admin Hub writes content; the public pages read that content with the public Supabase client.
+## Ownership
+
+| Capability | Public/member application | Admin Hub |
+| --- | --- | --- |
+| Public content rendering | Owns | Supplies managed data |
+| Member authentication and application submission | Owns | Reviews applications |
+| Member profile and public-listing preferences | Owns member edits | Supports staff operations |
+| Event registration and resources | Owns member/guest flows | Manages events, registrations, and resources |
+| Posts and reactions | Reads posts; owns member reactions | Creates and publishes posts |
+| QR pass display | Owns | Scans and records attendance |
+| Attendance points | Displays ledger | Initiates verified check-in workflow |
+| Staff authorization | Reads role only for member routing | Owns staff-facing authorization and UI |
+| Schema, RPC, and RLS contracts | Shared responsibility | Shared responsibility |
+
+Do not share frontend source by importing one repository into the other. Share stable backend contracts instead.
+
+## Trust boundary
 
 ```text
-Talkware Admin Hub `/`
-  -> Supabase Auth
-  -> `staff_roles` authorization
-  -> INSERT / UPDATE / DELETE content tables
-  -> Supabase Storage uploads
-
-/
-  -> SELECT content tables
-  -> render landing page sections
-
-/event/:id
-  -> SELECT event detail tables
-  -> render event detail page
+Public/member browser                    Admin Hub browser
+        │                                      │
+        │ anon/authenticated client            │ authenticated staff client
+        └──────────────────┬───────────────────┘
+                           │
+                    Supabase Data API
+                           │
+                grants + RLS + trusted RPCs
+                           │
+                       PostgreSQL
 ```
 
-## Authentication Boundary
+An authenticated user is not automatically staff. Admin Hub access and writes require a matching `staff_roles` record and supporting policies/functions. The public application must remain safe even if a user calls the Data API outside the UI.
 
-- The separate Admin Hub uses `supabase.auth.getSession()` and `onAuthStateChange()`.
-- If no session exists, the admin login form is shown.
-- If a session exists, the Admin Hub reads `staff_roles` before rendering staff tools.
-- `admin` can manage staff assignments and all content; `organizer` receives operational access and optional membership-review permission.
-- An authenticated account without a staff role receives an access-denied screen.
+## Shared data contracts
 
-## Member Operations
+### Events
 
-- The Community tab reviews membership applications and publishes member updates.
-- Members can create an account with verified email/password or Google, then submit the same application from `/join`; staff review both paths here.
-- Event operations show member/guest registrations and waitlist status, and upload presentation files to the private `event-resources` bucket.
-- QR check-in selects an event, scans an opaque member pass, validates confirmed registration, and records one attendance row. The database automatically awards 5 points for Meetup attendance or 10 points for Training attendance.
-- Existing Auth users are bootstrapped as admins by the member migration because Auth was admin-only before public Google signup.
+The Admin Hub manages `events`, `event_media`, and `event_sections`.
 
-## Shared Tables by Feature
+- Published, non-archived events appear in the member workspace.
+- Published, archived events with `highlight_note` or `highlight_image_url` appear as public past-event highlights.
+- `/event/:id` reads the event and its ordered media/sections.
+- Capacity and waitlist decisions belong to registration functions, not either browser.
 
-### Upcoming Events
+Any change to event status values, archive behavior, date fields, or media types requires checking both applications.
 
-Admin tab: `Events`
+### Contributors and public members
 
-- Writes to `events`.
-- Member portal reads published, non-archived events; the landing page no longer lists upcoming events.
-- Admin dashboard reads all events, including archived ones.
-- Archive button toggles `events.archived`.
+- The Admin Hub manages `contributors` and `contributor_tags`.
+- The landing page orders contributors by points and uses tag metadata for labels/colors.
+- Members manage their own `member_profiles` data.
+- A member appears publicly only when `public_listing = true` and applicable RLS conditions pass.
 
-### Past Events
+Do not merge contributor records and authenticated member profiles without a migration and identity plan; they represent different lifecycle models.
 
-Admin tab: `Past Events`
+### Membership
 
-- Writes to `highlights`.
-- Landing page reads `highlights` and renders cards in the Past Events section.
-- If `highlights.event_id` is set, the landing card links to `/event/{event_id}`.
-- Event detail page also reads highlights where `event_id` equals the route event ID.
+The public app creates `member_profiles` and `membership_applications` for signed-in users. The Admin Hub reviews applications.
 
-### Event Details
+Approval may issue a member pass through a database trigger. Route access is refreshed from profile, application, and staff-role state, but RLS remains authoritative.
 
-Admin location: edit an existing event in the `Events` tab.
+### Community posts
 
-- Writes photos and videos to `event_media`.
-- Writes structured content blocks to `event_sections`.
-- Event detail page reads both by `event_id`.
-- Media and sections only appear on `/event/:id`; they do not render directly on the landing page.
+- Admin Hub authors and publishes `community_posts`.
+- Members read published posts.
+- Members create or remove only their own `post_reactions`.
 
-### Founding Team
+Publication filtering must exist in policy/query behavior; unpublished content must not leak through a permissive public select policy.
 
-Admin tab: `Founding Team`
+### Registrations, resources, and attendance
 
-- Writes to `founding_team`.
-- Landing page reads `founding_team` ordered by `sort_order`.
-- `active` currently affects opacity, not visibility.
+- Admin Hub creates events and uploads private resources.
+- Public/member UI invokes registration functions and reads permitted registration state.
+- Resources are stored in the private `event-resources` bucket and opened through signed URLs.
+- Admin Hub scans opaque member-pass tokens and calls the attendance workflow.
+- Attendance awards are generated by database logic and recorded in `point_ledger`.
 
-### Co-creators
+Neither frontend should calculate authoritative capacity, award points directly, or trust a user-supplied member ID.
 
-Admin tab: `Co-creators`
+### Peer Sessions
 
-- Writes to `co_creators`.
-- Landing page reads `co_creators` ordered by `created_at`.
+Peer Sessions are member-owned in this repository. Their tables and RPCs still share the same database and point ledger used by Admin Hub reporting.
 
-### Volunteers
+If the Admin Hub later adds moderation or reporting, it must use the established statuses and append-only point semantics rather than mutating balances independently.
 
-Admin tab: `Volunteers`
+## Storage contracts
 
-- Writes to `volunteers`.
-- Landing page reads `volunteers` ordered by `created_at`.
+| Bucket/path | Visibility | Writer | Consumer |
+| --- | --- | --- | --- |
+| `assets` | Public read | Staff; constrained member avatar paths | Public and member UI |
+| `assets/member-avatars/{user_id}/...` | Public read | Owning approved member | Profiles and member network |
+| `event-resources` | Private | Staff | Approved members through signed URLs |
+| Google Drive originals | Private | `archive-image` Edge Function | Operational archive only |
 
-## Image Flow
+Store stable object paths in database rows. Do not persist temporary signed URLs.
 
-1. Admin selects an image file.
-2. `handleFileUpload` uploads the file to Supabase Storage bucket `assets`.
-3. Supabase returns a public URL.
-4. Admin form stores that URL in `image_url`.
-5. Landing page reads `image_url` and renders it in cards.
+## Cross-repository change protocol
 
-## Public Page Data Flow
+For a shared contract change:
 
-### Landing Page
+1. Identify every reader and writer in both repositories.
+2. Design a backward-compatible rollout when deployments cannot be atomic.
+3. Add the migration in the repository designated to own that schema change.
+4. Update grants, RLS, functions, and indexes together.
+5. Deploy additive database changes before code that depends on them.
+6. Deploy consumers and producers.
+7. Remove deprecated fields only after both deployments stop using them.
+8. Update collaboration documents in both repositories.
 
-`LandingPage.fetchData()` runs these queries:
+Prefer additive transitions such as nullable columns, new status values with compatible readers, or dual-read periods. Avoid renaming/dropping a live field in the same step that introduces its replacement.
 
-- `highlights`: select all, order by `num`.
-- `contributors`: select all, highest contribution points first.
-- `member_profiles`: select approved, opted-in public cards.
+## Pull request handoff
 
-### Event Detail Page
+Cross-repository pull requests should state:
 
-`EventDetailPage.fetchData()` runs these queries:
+- Which repository owns the first deployment
+- Required migration version
+- Compatibility window and rollback behavior
+- Environment or Storage changes
+- Queries/forms affected in the other application
+- Verification performed for both public and staff roles
 
-- `events`: select one by route `id`.
-- `event_media`: select by `event_id`, ordered by `sort_order`.
-- `event_sections`: select by `event_id`, ordered by `sort_order`.
-- `highlights`: select by `event_id`, newest `num` first.
+## Operational checks
 
-## Operational Notes
-
-- Public reads use the anon key, so RLS public `SELECT` policies are required.
-- Admin writes require both Supabase Auth and a matching `staff_roles` row.
-- `VITE_SUPABASE_ANON_KEY` must be configured for the frontend client.
-- If `events.archived` or `highlights.event_id` is missing, current UI behavior will break or lose linking behavior.
-- If the `assets` bucket or storage policies are missing, image uploads will fail.
+- Confirm both deployments point to the same intended Supabase project.
+- Compare local and remote migration history before release.
+- Verify public, authenticated-member, organizer, and admin behavior independently.
+- Run security and performance advisors after DDL or policy changes.
+- Check Storage policies whenever an object path or bucket changes.
+- Never copy a service-role or OAuth secret into either browser environment.

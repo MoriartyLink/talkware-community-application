@@ -1,162 +1,166 @@
-# Database Schema Collaboration Document
+# Database and Security Contract
 
-## Canonical Schema Source
+This document describes the database domains used by the public and member application. The ordered SQL files in `supabase/migrations/` are authoritative. `database_schema.sql` is a consolidated reference snapshot and must not be used to patch an existing environment.
 
-Use `database_schema.sql` for a clean installation. Apply the ordered files in `supabase/migrations` to existing deployments. Older SQL helper scripts are local-only and ignored.
+## Migration workflow
 
-The member portal adds `member_profiles`, `membership_applications`, `staff_roles`, `member_passes`, `community_posts`, `post_reactions`, `event_registrations`, `event_resources`, `event_attendance`, and `point_ledger`. Public tables use explicit Data API grants and RLS; presentation files live in the private `event-resources` bucket.
+This repository uses imperative migrations; `supabase/config.toml` does not configure declarative schema paths.
 
-Membership applications are always submitted by an authenticated member account. Both verified email/password registration and Google OAuth produce that Auth identity, and RLS requires the application email to match the signed-in user's JWT email.
+Create a migration through the CLI:
 
-## Tables
+```bash
+npx supabase migration new descriptive_change_name
+```
 
-### `events`
+Validate locally:
 
-Stores public event announcements and event detail parent records.
+```bash
+npx supabase db reset
+npx supabase test db
+```
 
-| Column | Type | Notes |
-| --- | --- | --- |
-| `id` | `uuid` | Primary key, defaults to `gen_random_uuid()` |
-| `title` | `text` | Required |
-| `date` | `text` | Display date/time string |
-| `type` | `text` | Check: `Meetup`, `Training` |
-| `location` | `text` | Optional |
-| `speaker` | `text` | Optional |
-| `description` | `text` | Optional |
-| `link` | `text` | Optional registration URL |
-| `archived` | `boolean` | Defaults to `false`; landing page hides archived events |
-| `created_at` | `timestamptz` | Defaults to current UTC time |
+Review a linked deployment before applying changes:
 
-### `highlights`
+```bash
+npx supabase migration list
+npx supabase db push --dry-run
+npx supabase db push
+```
 
-Stores past event cards on the landing page and optional related cards on event detail pages.
+Never edit an already-applied migration. Add a new migration that moves the schema forward.
 
-| Column | Type | Notes |
-| --- | --- | --- |
-| `id` | `uuid` | Primary key |
-| `num` | `text` | Display sequence such as `01` |
-| `title` | `text` | Optional in SQL, treated as content by UI |
-| `date` | `text` | Display date |
-| `place` | `text` | Display venue |
-| `time` | `text` | Display time |
-| `image_url` | `text` | Public image URL |
-| `highlight` | `text` | Required summary text |
-| `event_id` | `uuid` | Optional FK to `events(id)` |
-| `created_at` | `timestamptz` | Defaults to current UTC time |
+## Domain model
 
-### `co_creators`
+### Public content
 
-Stores co-creator profile cards.
+| Table | Responsibility |
+| --- | --- |
+| `events` | Event lifecycle, publication, archive state, capacity, and highlight fields |
+| `event_media` | Ordered event photos and videos |
+| `event_sections` | Ordered structured content blocks for an event |
+| `highlights` | Legacy/administrative highlight records retained by the baseline schema |
+| `contributors` | Public community contributor records and contribution points |
+| `contributor_tags` | Labels and colors for contributor categories |
+| `founding_team`, `co_creators`, `volunteers` | Earlier team-content models retained for compatibility |
 
-| Column | Type | Notes |
-| --- | --- | --- |
-| `id` | `uuid` | Primary key |
-| `name` | `text` | Required |
-| `role` | `text` | Required |
-| `image_url` | `text` | Optional public image URL |
-| `created_at` | `timestamptz` | Defaults to current UTC time |
+Current landing-page past-event cards come from published archived `events` with highlight content. Do not assume the `highlights` table is the active frontend source without checking current consumers.
 
-### `volunteers`
+### Membership and authorization
 
-Stores volunteer profile cards.
+| Table | Responsibility |
+| --- | --- |
+| `member_profiles` | Member identity, profile, public contacts, skills, and listing preference |
+| `membership_applications` | Application answers and review state |
+| `staff_roles` | Explicit `admin`/`organizer` authorization |
+| `member_passes` | Opaque QR tokens and pass lifecycle |
 
-| Column | Type | Notes |
-| --- | --- | --- |
-| `id` | `uuid` | Primary key |
-| `name` | `text` | Required |
-| `role` | `text` | Required |
-| `image_url` | `text` | Optional public image URL |
-| `created_at` | `timestamptz` | Defaults to current UTC time |
+The Auth user ID is the identity anchor. User-editable Auth metadata is not an authorization source.
 
-### `founding_team`
+### Community communication
 
-Stores founding team profile cards.
+| Table | Responsibility |
+| --- | --- |
+| `community_posts` | Staff-authored announcements and publication state |
+| `post_reactions` | One member reaction per post |
 
-| Column | Type | Notes |
-| --- | --- | --- |
-| `id` | `uuid` | Primary key |
-| `name` | `text` | Required |
-| `role` | `text` | Required |
-| `image_url` | `text` | Optional public image URL |
-| `active` | `boolean` | Defaults to `true`; currently changes opacity in UI |
-| `sort_order` | `int` | Controls landing/admin ordering |
-| `created_at` | `timestamptz` | Defaults to current UTC time |
+### Events and attendance
 
-### `contributor_tags`
+| Table | Responsibility |
+| --- | --- |
+| `event_registrations` | Member/guest registrations and confirmed/waitlisted/cancelled state |
+| `event_resources` | Metadata for private presentation/resource objects |
+| `event_attendance` | One verified member check-in per registration |
+| `point_ledger` | Attendance awards, Peer Session charges, and refunds |
 
-Stores contributor category metadata from the live Supabase schema.
+Balances are derived from ledger entries. Do not add a browser-writable balance column or update historical entries to simulate a balance change.
 
-| Column | Type | Notes |
-| --- | --- | --- |
-| `value` | `text` | Primary key |
-| `label` | `text` | Required display label |
-| `color` | `text` | Required color value, defaults to `#34d399` |
-| `created_at` | `timestamptz` | Defaults to current time |
+### Peer Sessions
 
-### `contributors`
+| Table | Responsibility |
+| --- | --- |
+| `peer_session_preferences` | Member opt-in, topics, and discovery bio |
+| `peer_session_requests` | Request details, fixed cost, participants, and lifecycle timestamps |
 
-Stores contributor profile data from the live Supabase schema.
+Supported durations and costs are enforced in the database:
 
-| Column | Type | Notes |
-| --- | --- | --- |
-| `id` | `uuid` | Primary key |
-| `name` | `text` | Required |
-| `role` | `text` | Required |
-| `tag` | `text` | Required, defaults to `volunteer` |
-| `image_url` | `text` | Optional public image URL |
-| `active` | `boolean` | Defaults to `true` |
-| `points` | `int` | Defaults to `0`, must be non-negative |
-| `joined_at` | `date` | Defaults to current date |
-| `sort_order` | `int` | Display order |
-| `created_at` | `timestamptz` | Defaults to current UTC time |
-| `github_url` | `text` | Optional |
-| `linkedin_url` | `text` | Optional |
+| Duration | Cost |
+| --- | --- |
+| 15 minutes | 50 points |
+| 30 minutes | 100 points |
+| 60 minutes | 200 points |
 
-### `event_media`
+Request creation, acceptance/decline, cancellation, completion, and refunds use trusted functions. Direct client writes to request lifecycle fields are intentionally restricted.
 
-Stores event detail photos and videos.
+### Media archive
 
-| Column | Type | Notes |
-| --- | --- | --- |
-| `id` | `uuid` | Primary key |
-| `event_id` | `uuid` | Required FK to `events(id)`, cascades on delete |
-| `media_type` | `text` | Check: `photo`, `video` |
-| `title` | `text` | Optional |
-| `url` | `text` | Required media URL |
-| `caption` | `text` | Optional |
-| `sort_order` | `int` | Display order |
-| `created_at` | `timestamptz` | Defaults to current UTC time |
+| Table | Responsibility |
+| --- | --- |
+| `media_archives` | Relationship between an owning member, private Drive original, and public Supabase copy |
 
-### `event_sections`
+## Important relationships
 
-Stores structured event detail content blocks.
+- `event_media.event_id` and `event_sections.event_id` belong to `events.id`.
+- `event_registrations.event_id` belongs to an event; member registrations may reference `auth.users`.
+- `event_attendance.registration_id` is unique, preventing duplicate check-ins for one registration.
+- Attendance-linked ledger records preserve event and attendance provenance.
+- Peer Session ledger records use request IDs as sources and unique indexes to prevent duplicate charges/refunds.
+- `member_profiles.user_id`, applications, roles, and passes align with Auth user IDs.
+- Deletion behavior is explicit; do not assume every foreign key cascades.
 
-| Column | Type | Notes |
-| --- | --- | --- |
-| `id` | `uuid` | Primary key |
-| `event_id` | `uuid` | Required FK to `events(id)`, cascades on delete |
-| `section_type` | `text` | Check: `highlight`, `activity`, `game`, `win` |
-| `title` | `text` | Required |
-| `description` | `text` | Optional |
-| `subtitle` | `text` | Optional |
-| `icon` | `text` | Optional; currently stored but not dynamically rendered |
-| `sort_order` | `int` | Display order |
-| `created_at` | `timestamptz` | Defaults to current UTC time |
+## Trusted functions
 
-## Access Model
+| Function | Purpose |
+| --- | --- |
+| `private.is_approved_member` | Reusable membership authorization predicate |
+| `private.is_staff` | Staff authorization predicate |
+| `private.can_review_members` | Membership-review capability predicate |
+| `register_for_event` | Atomic member registration and waitlist assignment |
+| `register_guest_for_event` | Constrained guest registration |
+| `record_event_attendance` | Staff-authorized QR attendance recording |
+| `private.award_event_attendance_points` | Trigger-driven attendance award |
+| `create_peer_session_request` | Validates and charges a new request atomically |
+| `respond_to_peer_session_request` | Accepts or declines as the requested peer |
+| `cancel_peer_session_request` | Cancels as requester and refunds safely |
+| `complete_peer_session_request` | Completes an accepted request as requester |
+| `private.refund_peer_session_request` | Idempotent internal refund helper |
 
-- Row Level Security is enabled on all content tables.
-- Public users can read published events and event content, past highlights, contributors, and approved opt-in member profiles.
-- Approved members can read community posts and resources and can manage only their own profile, registration status, and reaction.
-- Staff writes require an `admin` or `organizer` row in `staff_roles`; authentication alone grants no content-management permission.
-- Verified member attendance creates one private `point_ledger` award: 5 points for a Meetup or 10 points for a Training. Members read only their own ledger; staff can read all ledgers.
-- Supabase Storage bucket `assets` is expected to be public.
-- Public users can read `storage.objects` for `assets`.
-- Staff manage `assets` and the private `event-resources` bucket; approved members can read event resources.
+Security-definer functions must set a safe `search_path`, validate the caller, revoke default `PUBLIC` execution, and grant only the required role.
 
-## Relationship Summary
+## RLS and Data API rules
 
-- `highlights.event_id` optionally links a past event card to an event detail page.
-- `event_media.event_id` and `event_sections.event_id` belong to one event.
-- `point_ledger.attendance_id` uniquely links an immutable award to one verified check-in; deleting that attendance cascades to its award.
-- Deleting an event cascades to its media and sections.
+- Enable RLS on every table in an exposed schema.
+- Grant Data API privileges explicitly; grants make an operation available, while RLS decides which rows are allowed.
+- `TO authenticated` proves only that a token maps to that Postgres role. Add ownership, participant, publication, or staff predicates.
+- An `UPDATE` needs a readable row and should use both `USING` and `WITH CHECK` when protected columns must remain valid.
+- Public policies must expose only deliberately published content.
+- Member policies should use `auth.uid()` and avoid trusting user-submitted owner IDs.
+- Test denied operations as carefully as successful operations.
+
+## Storage
+
+### `assets`
+
+- Publicly readable web assets
+- Staff-managed general content
+- Approved members may manage only their own `member-avatars/{user_id}/...` path
+
+### `event-resources`
+
+- Private bucket
+- Staff-managed objects
+- Approved members receive time-limited signed URLs after authorization
+
+Storage upserts require compatible insert, select, and update policies. Store object paths—not signed URLs—in application tables.
+
+## Change checklist
+
+- [ ] Migration was created through the configured workflow.
+- [ ] Foreign keys and common query paths have suitable indexes.
+- [ ] New exposed tables have RLS and explicit grants.
+- [ ] Policies cover select, insert, update, and delete independently.
+- [ ] Privileged functions validate identity and restrict execution.
+- [ ] Existing public/member/Admin Hub queries remain compatible.
+- [ ] `npx supabase db reset` succeeds.
+- [ ] Database tests include allowed and denied cases.
+- [ ] Remote migration dry-run was reviewed before deployment.
+- [ ] This document and the Admin Hub contract were updated.
