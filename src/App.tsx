@@ -21,6 +21,8 @@ const MemberPointsPage = lazy(() => import('./pages/member/MemberPointsPage'));
 const MemberProfilePage = lazy(() => import('./pages/community/MemberProfilePage'));
 const MiniAppsPage = lazy(() => import('./pages/community/MiniAppsPage'));
 const PeerSessionPage = lazy(() => import('./pages/community/PeerSessionPage'));
+const ProjectsPage = lazy(() => import('./pages/ProjectsPage'));
+const ProjectDetailPage = lazy(() => import('./pages/ProjectDetailPage'));
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(() => window.location.pathname === '/' && window.sessionStorage.getItem('talkware-splash-seen') !== 'true');
@@ -47,6 +49,8 @@ export default function App() {
                   <Route path="/reset-password" element={<ResetPasswordPage />} />
                   <Route path="/join" element={<ApplicationPage />} />
                   <Route path="/application-status" element={<ApplicationStatusPage />} />
+                  <Route path="/projects" element={<ProjectsPage />} />
+                  <Route path="/projects/:slug" element={<ProjectDetailPage />} />
                   <Route element={<MemberRoute />}>
                     <Route path="/community" element={<CommunityLayout />}>
                       <Route index element={<CommunityHomePage />} />
