@@ -49,9 +49,11 @@ export default function App() {
                   <Route path="/reset-password" element={<ResetPasswordPage />} />
                   <Route path="/join" element={<ApplicationPage />} />
                   <Route path="/application-status" element={<ApplicationStatusPage />} />
-                  <Route path="/projects" element={<ProjectsPage />} />
-                  <Route path="/projects/:slug" element={<ProjectDetailPage />} />
                   <Route element={<MemberRoute />}>
+                    <Route path="/projects" element={<CommunityLayout />}>
+                      <Route index element={<ProjectsPage />} />
+                      <Route path=":slug" element={<ProjectDetailPage />} />
+                    </Route>
                     <Route path="/community" element={<CommunityLayout />}>
                       <Route index element={<CommunityHomePage />} />
                       <Route path="events" element={<CommunityEventsPage />} />

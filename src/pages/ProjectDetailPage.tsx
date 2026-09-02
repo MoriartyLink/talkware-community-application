@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ExternalLink, Github, Image as ImageIcon } from 'lucide-react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { ExternalLink, Github, Image as ImageIcon } from 'lucide-react';
+import { Navigate, useParams } from 'react-router-dom';
 import ProjectBadges from '../components/ProjectBadges';
 import { PROJECT_STATUS_LABELS } from '../config/communityProjects';
 import { fetchCommunityProject } from '../lib/projects';
@@ -13,9 +13,8 @@ export default function ProjectDetailPage() {
   useEffect(() => { if (slug) fetchCommunityProject(slug).then(result => { setProject(result.data); setLoading(false); }); }, [slug]);
   if (!loading && !project) return <Navigate to="/projects" replace />;
   if (loading) return <div className="flex min-h-screen items-center justify-center bg-black text-white/45">Loading project…</div>;
-  return <div className="min-h-screen bg-black text-white">
-    <header className="border-b border-white/10 px-5 py-5"><div className="mx-auto flex max-w-5xl"><Link to="/community" className="inline-flex items-center gap-2 text-sm text-white/55"><ArrowLeft className="h-4 w-4" /> Back to community</Link></div></header>
-    <main className="mx-auto max-w-5xl px-5 py-12 md:px-8 md:py-20">
+  return <div className="text-white">
+    <main className="max-w-5xl">
       <ProjectBadges badges={project!.badges} lookingForContributors={project!.lookingForContributors} /><h1 className="mt-6 text-5xl font-bold md:text-7xl">{project!.name.replace(/^Talkware\s+/i, '')}</h1><p className="mt-5 max-w-3xl text-xl leading-relaxed text-white/55">{project!.shortDescription}</p>
       <div className="mt-9 flex flex-wrap gap-3">{project!.demoUrl && <a href={project!.demoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 font-bold text-black">View Demo <ExternalLink className="h-4 w-4" /></a>}{project!.githubUrl && <a href={project!.githubUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-5 py-3 font-bold"><Github className="h-4 w-4" /> View GitHub</a>}</div>
       <div className="mt-12 overflow-hidden rounded-3xl border border-white/10 bg-white/5">{project!.coverImage ? <img src={project!.coverImage} alt={`${project!.name} cover`} className="max-h-[560px] w-full object-cover" /> : <div className="flex aspect-video items-center justify-center text-white/20"><ImageIcon className="h-12 w-12" /></div>}</div>
