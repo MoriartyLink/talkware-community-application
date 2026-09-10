@@ -12,6 +12,7 @@ interface HighlightEvent {
   date: string | null;
   location: string | null;
   starts_at: string | null;
+  description: string | null;
   highlight_image_url: string | null;
   highlight_note: string | null;
 }
@@ -90,7 +91,7 @@ export default function LandingPage() {
     async function fetchData() {
       try {
         const [eventsData, contributorsData, membersData] = await Promise.all([
-          supabase.from('events').select('id, title, date, location, starts_at, highlight_image_url, highlight_note').eq('published', true).eq('archived', true).order('starts_at', { ascending: true, nullsFirst: false }),
+          supabase.from('events').select('id, title, date, location, starts_at, description, highlight_image_url, highlight_note').eq('published', true).eq('archived', true).order('starts_at', { ascending: true, nullsFirst: false }),
           supabase.from('contributors').select('*').order('points', { ascending: false }).order('created_at', { ascending: true }),
           supabase.from('member_profiles').select('user_id, display_name, avatar_url, headline, bio, skills, github_url, linkedin_url, telegram_url, contact_email').eq('public_listing', true).order('display_name', { ascending: true })
         ]);
@@ -305,7 +306,7 @@ export default function LandingPage() {
                       <Globe className="w-3 h-3" />
                       <span>{event.location || 'Location to be announced'}</span>
                     </div>
-                    {event.highlight_note && <p className="text-sm text-white/50 leading-relaxed">{event.highlight_note}</p>}
+                    {event.description && <p className="text-sm text-white/50 leading-relaxed">{event.description}</p>}
                     <div className="flex items-center gap-1 text-xs text-white/60 mt-auto pt-4 opacity-0 group-hover:opacity-100 transition-all"><span>View Details</span><ArrowRight className="w-3 h-3" /></div>
                   </motion.div>
                 );
