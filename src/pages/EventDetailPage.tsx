@@ -8,6 +8,7 @@ import { formatEventDate, shareEvent } from "../lib/community";
 import type { CommunityEvent } from "../types/community";
 import EventRegistrationSection from "../components/EventRegistrationSection";
 import EventResourcesSection from "../components/EventResourcesSection";
+import MarkdownContent from "../components/MarkdownContent";
 
 type Event = CommunityEvent;
 
@@ -178,7 +179,7 @@ export default function EventDetailPage() {
                 </p>
               )}
               {event.highlight_note && (
-                <p className="text-lg text-white/60 leading-relaxed max-w-2xl">{event.highlight_note}</p>
+                <MarkdownContent className="max-w-2xl text-lg leading-relaxed text-white/60">{event.highlight_note}</MarkdownContent>
               )}
               <button onClick={handleShare} className="mt-8 inline-flex items-center gap-2 rounded-xl border border-white/15 px-5 py-3 text-sm font-bold hover:bg-white/10"><Share2 className="h-4 w-4" /> Share event</button>
               {shareNotice && <p className="mt-4 text-sm text-white/55">{shareNotice}</p>}

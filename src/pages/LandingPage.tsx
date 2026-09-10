@@ -5,6 +5,7 @@ import { ArrowRight, Users, Globe, Github, User, Linkedin } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import MemberNetwork from "../components/MemberNetwork";
+import MarkdownContent from "../components/MarkdownContent";
 
 interface HighlightEvent {
   id: string;
@@ -306,7 +307,7 @@ export default function LandingPage() {
                       <Globe className="w-3 h-3" />
                       <span>{event.location || 'Location to be announced'}</span>
                     </div>
-                    {event.description && <p className="text-sm text-white/50 leading-relaxed">{event.description}</p>}
+                    {event.description && <MarkdownContent compact className="text-sm leading-relaxed text-white/50">{event.description}</MarkdownContent>}
                     <div className="flex items-center gap-1 text-xs text-white/60 mt-auto pt-4 opacity-0 group-hover:opacity-100 transition-all"><span>View Details</span><ArrowRight className="w-3 h-3" /></div>
                   </motion.div>
                 );
